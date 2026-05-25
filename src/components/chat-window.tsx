@@ -62,9 +62,8 @@ export function ChatWindow({ thread }: { thread: Thread }) {
 
   const isLoading = status === "submitted" || status === "streaming";
 
-  const handleSubmit = (e: { preventDefault: () => void }) => {
-    e.preventDefault();
-    const value = textareaRef.current?.value?.trim();
+  const handleSubmit = (message: { text?: string }) => {
+    const value = message.text?.trim() || textareaRef.current?.value?.trim();
     if (!value) return;
     sendMessage({ text: value });
     if (textareaRef.current) textareaRef.current.value = "";
