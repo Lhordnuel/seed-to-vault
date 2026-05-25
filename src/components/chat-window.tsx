@@ -1,6 +1,7 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { PanelRightClose, PanelRightOpen } from "lucide-react";
 import {
   Conversation,
   ConversationContent,
@@ -25,6 +26,8 @@ import {
   ToolInput,
   ToolOutput,
 } from "@/components/ai-elements/tool";
+import { ActivityPanel } from "@/components/activity-panel";
+import { Button } from "@/components/ui/button";
 import { upsertThread, titleFromMessages, type Thread } from "@/lib/threads";
 import logo from "@/assets/logo.png";
 
