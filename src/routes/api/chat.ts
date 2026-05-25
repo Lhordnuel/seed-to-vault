@@ -129,6 +129,74 @@ export const Route = createFileRoute("/api/chat")({
               return { ...input, instruction: "Use this context to write a 4-6 sentence email pitch. Subject line first." };
             },
           }),
+          send_pitch: tool({
+            description:
+              "Send a Vaultio pitch email via Resend. From: Vaultio Scout. Reply-To is nuel@vaultio.tech so any reply lands in Nuel's inbox and the conversation continues there. Only call this after the user has approved the draft (or explicitly asked you to send).",
+            inputSchema: z.object({
+              to: z.string().email().describe("Recipient email address"),
+              subject: z.string().min(1).max(200),
+              body: z
+                .string()
+                .min(1)
+                .describe("Plain-text email body. Line breaks preserved."),
+              companyName: z.string().optional(),
+            }),
+            execute: async ({ to, subject, body, companyName }) => {
+              const resendKey = process.env.RESEND_API_KEY;
+              const lovableKey = process.env.LOVABLE_API_KEY;
+              if (!resendKey || !lovableKey) {
+                return { error: "Email service not configured." };
+              }
+              try {
+                const html = body
+                  .split(/\n\n+/)
+                  .map(
+                    (p) =>
+                      `<p style="margin:0 0 12px;line-height:1.5;">${p
+                        .replace(/&/g, "&amp;")
+                        .replace(/</g, "&lt;")
+                        .replace(/>/g, "&gt;")
+                        .replace(/\n/g, "<br/>")}</p>`,
+                  )
+                  .join("");
+                const res = await fetch(
+                  "https://connector-gateway.lovable.dev/resend/emails",
+                  {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${lovableKey}`,
+                      "X-Connection-Api-Key": resendKey,
+                    },
+                    body: JSON.stringify({
+                      from: "Vaultio <onboarding@resend.dev>",
+                      to: [to],
+                      reply_to: "nuel@vaultio.tech",
+                      subject,
+                      text: body,
+                      html,
+                    }),
+                  },
+                );
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                  return {
+                    error: `Resend ${res.status}: ${JSON.stringify(data)}`,
+                  };
+                }
+                return {
+                  sent: true,
+                  to,
+                  subject,
+                  companyName,
+                  replyTo: "nuel@vaultio.tech",
+                  resendId: data?.id,
+                };
+              } catch (e) {
+                return { error: (e as Error).message };
+              }
+            },
+          }),
         };
 
         const result = streamText({
