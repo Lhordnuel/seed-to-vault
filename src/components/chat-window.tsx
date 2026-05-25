@@ -1,6 +1,7 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { PanelRightClose, PanelRightOpen } from "lucide-react";
 import {
   Conversation,
   ConversationContent,
@@ -25,6 +26,8 @@ import {
   ToolInput,
   ToolOutput,
 } from "@/components/ai-elements/tool";
+import { ActivityPanel } from "@/components/activity-panel";
+import { Button } from "@/components/ui/button";
 import { upsertThread, titleFromMessages, type Thread } from "@/lib/threads";
 import logo from "@/assets/logo.png";
 
@@ -70,56 +73,107 @@ export function ChatWindow({ thread }: { thread: Thread }) {
   };
 
   const showEmpty = messages.length === 0;
+  const [panelOpen, setPanelOpen] = useState(true);
+  const activityCount = (messages as UIMessage[]).reduce(
+    (n, m) => n + m.parts.filter((p: any) => p.type?.startsWith("tool-")).length,
+    0,
+  );
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <Conversation className="flex-1">
-        <ConversationContent>
-          {showEmpty ? <EmptyState /> : null}
-          {messages.map((m) => (
-            <Message key={m.id} from={m.role}>
-              <MessageContent>
-                {m.parts.map((part, i) => {
-                  if (part.type === "text") {
-                    return (
-                      <MessageResponse key={i}>{part.text}</MessageResponse>
-                    );
-                  }
-                  if (part.type?.startsWith("tool-")) {
-                    return <ToolPart key={i} part={part} />;
-                  }
-                  return null;
-                })}
-              </MessageContent>
-            </Message>
-          ))}
-          {status === "submitted" ? (
-            <Message from="assistant">
-              <MessageContent>
-                <Shimmer>Scouting startups…</Shimmer>
-              </MessageContent>
-            </Message>
-          ) : null}
-        </ConversationContent>
-        <ConversationScrollButton />
-      </Conversation>
+    <div className="flex h-full min-h-0 w-full">
+      <div className="flex h-full min-w-0 flex-1 flex-col">
+        <div className="flex items-center justify-between border-b bg-background/60 px-3 py-2">
+          <div className="text-xs text-muted-foreground">
+            {isLoading ? (
+              <span className="flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+                Bot is running
+              </span>
+            ) : (
+              <span>{activityCount > 0 ? `${activityCount} actions in this chat` : "Ready"}</span>
+            )}
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => setPanelOpen((v) => !v)}
+            aria-label={panelOpen ? "Hide activity" : "Show activity"}
+          >
+            {panelOpen ? (
+              <PanelRightClose className="h-4 w-4" />
+            ) : (
+              <PanelRightOpen className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
 
-      <div className="border-t bg-background p-4">
-        <PromptInput onSubmit={handleSubmit}>
-          <PromptInputTextarea
-            ref={textareaRef}
-            placeholder="e.g. Find AI infra startups on YC hiring backend engineers"
-            disabled={isLoading}
-          />
-          <PromptInputFooter className="justify-end">
-            <PromptInputSubmit
-              status={status}
-              disabled={isLoading && status !== "streaming"}
-              onClick={status === "streaming" ? () => stop() : undefined}
+        <Conversation className="flex-1">
+          <ConversationContent>
+            {showEmpty ? <EmptyState /> : null}
+            {messages.map((m) => (
+              <Message key={m.id} from={m.role}>
+                <MessageContent>
+                  {m.parts.map((part, i) => {
+                    if (part.type === "text") {
+                      return (
+                        <MessageResponse key={i}>{part.text}</MessageResponse>
+                      );
+                    }
+                    if (part.type?.startsWith("tool-")) {
+                      return <ToolPart key={i} part={part} />;
+                    }
+                    return null;
+                  })}
+                </MessageContent>
+              </Message>
+            ))}
+            {status === "submitted" ? (
+              <Message from="assistant">
+                <MessageContent>
+                  <Shimmer>Scouting startups…</Shimmer>
+                </MessageContent>
+              </Message>
+            ) : null}
+          </ConversationContent>
+          <ConversationScrollButton />
+        </Conversation>
+
+        <div className="border-t bg-background p-4">
+          <PromptInput onSubmit={handleSubmit}>
+            <PromptInputTextarea
+              ref={textareaRef}
+              placeholder="e.g. Find AI infra startups on YC hiring backend engineers"
+              disabled={isLoading}
             />
-          </PromptInputFooter>
-        </PromptInput>
+            <PromptInputFooter className="justify-end">
+              <PromptInputSubmit
+                status={status}
+                disabled={isLoading && status !== "streaming"}
+                onClick={status === "streaming" ? () => stop() : undefined}
+              />
+            </PromptInputFooter>
+          </PromptInput>
+        </div>
       </div>
+
+      {panelOpen ? (
+        <div className="hidden w-80 shrink-0 border-l md:block">
+          <ActivityPanel messages={messages as UIMessage[]} isRunning={isLoading} />
+        </div>
+      ) : null}
+
+      {panelOpen ? (
+        <div className="fixed inset-0 z-40 md:hidden" role="dialog">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setPanelOpen(false)}
+          />
+          <div className="absolute right-0 top-0 h-full w-[85%] max-w-sm border-l bg-background shadow-xl">
+            <ActivityPanel messages={messages as UIMessage[]} isRunning={isLoading} />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
