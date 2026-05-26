@@ -35,3 +35,16 @@ export async function firecrawlScrape(url: string) {
   if (!res.ok) throw new Error(`Firecrawl scrape failed: ${res.status} ${await res.text()}`);
   return res.json();
 }
+
+export async function firecrawlMap(url: string, opts: { search?: string; limit?: number } = {}) {
+  const res = await fetch(`${FIRECRAWL_BASE}/map`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ url, search: opts.search, limit: opts.limit ?? 50 }),
+  });
+  if (!res.ok) throw new Error(`Firecrawl map failed: ${res.status} ${await res.text()}`);
+  return res.json();
+}
