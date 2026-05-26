@@ -8,7 +8,7 @@ import {
 } from "ai";
 import { z } from "zod";
 import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
-import { firecrawlScrape, firecrawlSearch } from "@/lib/firecrawl.server";
+import { firecrawlMap, firecrawlScrape, firecrawlSearch } from "@/lib/firecrawl.server";
 
 const SOURCE_DOMAINS: Record<string, string> = {
   wellfound: "wellfound.com",
@@ -28,12 +28,13 @@ Vaultio is a secrets and credentials management platform built for fast-moving e
 
 How to work:
 1. When the user asks for leads, call \`search_startups\` against the appropriate source(s) (wellfound, f6s, yc, linkedin).
-2. For promising hits, call \`scrape_company\` to enrich (stage, size, hiring focus). Try to surface a contact email (founder, careers@, hiring@) from the scraped page.
+2. For promising hits, call \`scrape_company\` to enrich (stage, size, hiring focus).
 3. Filter ruthlessly: only return companies that are clearly seed–Series A and look like 1–50 people.
-4. Present results as a numbered list with: company name, what they do (1 line), stage/size, roles they're hiring, contact email if found, source URL.
-5. When the user asks you to pitch one, call \`draft_pitch\` first to compose subject + body. Show the draft to the user for approval unless they explicitly said "send it".
-6. When the user approves (or says "send"), call \`send_pitch\` with the recipient email, subject, and body. Emails go out via Resend from Vaultio with reply-to set to nuel@vaultio.tech — any reply lands directly in Nuel's inbox and the conversation continues from there.
-7. NEVER call \`send_pitch\` without a recipient email. If you don't have one, ask the user.
+4. Present results as a numbered list with: company name, what they do (1 line), stage/size, roles they're hiring, source URL.
+5. BEFORE drafting any pitch, AUTOMATICALLY call \`find_executive_contacts\` with the company's primary domain to extract CEO / Founder / CTO / COO emails from their team, about, and contact pages. Do this without asking — it's a required step.
+6. Then call \`draft_pitch\` to compose subject + body, addressing the highest-ranking exec you found (CEO/Founder first, then CTO, then COO). Show the draft + the recipient email to the user for approval unless they explicitly said "send it".
+7. When the user approves (or says "send"), call \`send_pitch\` with the recipient email, subject, and body. Emails go out via Resend from Vaultio with reply-to set to nuel@vaultio.tech — any reply lands directly in Nuel's inbox and the conversation continues from there.
+8. NEVER call \`send_pitch\` without a recipient email. If \`find_executive_contacts\` returned nothing usable, tell the user and ask for an email.
 
 Be concise. Use markdown. Never invent companies, URLs, or email addresses — only report what tools returned or what the user provided.`;
 
@@ -111,6 +112,128 @@ export const Route = createFileRoute("/api/chat")({
               } catch (e) {
                 return { url, error: (e as Error).message };
               }
+            },
+          }),
+          find_executive_contacts: tool({
+            description:
+              "Extract executive contact emails (CEO, Founder, CTO, COO, Head of Eng) from a company website. Maps the site for team/about/contact/leadership pages, scrapes them, and pulls emails with role context. Call this automatically before draft_pitch.",
+            inputSchema: z.object({
+              domain: z
+                .string()
+                .describe(
+                  "Company primary domain or homepage URL, e.g. 'acme.com' or 'https://acme.com'",
+                ),
+              companyName: z.string().optional(),
+            }),
+            execute: async ({ domain, companyName }) => {
+              const homepage = /^https?:\/\//i.test(domain)
+                ? domain
+                : `https://${domain.replace(/^\/+/, "")}`;
+              const rootDomain = new URL(homepage).hostname.replace(/^www\./, "");
+
+              const pickedUrls = new Set<string>([homepage]);
+              try {
+                const mapRes = await firecrawlMap(homepage, {
+                  search: "team about contact leadership founders people",
+                  limit: 30,
+                });
+                const links: string[] =
+                  mapRes?.links ?? mapRes?.data?.links ?? [];
+                const keywords =
+                  /(team|about|contact|leadership|people|founders?|company|who-we-are)/i;
+                for (const l of links) {
+                  if (typeof l === "string" && keywords.test(l)) {
+                    pickedUrls.add(l);
+                    if (pickedUrls.size >= 6) break;
+                  }
+                }
+              } catch {
+                // proceed with homepage only
+              }
+
+              const roleRegex =
+                /\b(ceo|chief executive officer|founder|co-?founder|cto|chief technology officer|coo|chief operating officer|head of engineering|vp engineering)\b/i;
+              const emailRegex =
+                /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+
+              type Contact = {
+                email: string;
+                name?: string;
+                role?: string;
+                source: string;
+                rank: number;
+              };
+              const contacts = new Map<string, Contact>();
+
+              const rankFor = (role?: string) => {
+                if (!role) return 5;
+                const r = role.toLowerCase();
+                if (/(ceo|chief executive|^founder|co-?founder)/.test(r)) return 1;
+                if (/(cto|chief technology)/.test(r)) return 2;
+                if (/(coo|chief operating)/.test(r)) return 3;
+                if (/(head of engineering|vp engineering)/.test(r)) return 4;
+                return 5;
+              };
+
+              for (const url of pickedUrls) {
+                try {
+                  const data = await firecrawlScrape(url);
+                  const md: string =
+                    data?.data?.markdown ?? data?.markdown ?? "";
+                  if (!md) continue;
+                  const emails = md.match(emailRegex) ?? [];
+                  for (const rawEmail of emails) {
+                    const email = rawEmail.toLowerCase();
+                    if (/\.(png|jpg|jpeg|svg|gif|webp)$/i.test(email)) continue;
+                    if (
+                      /(sentry|wixpress|example\.com|noreply|no-reply)/i.test(
+                        email,
+                      )
+                    )
+                      continue;
+                    const emailDomain = email.split("@")[1] ?? "";
+                    // prefer same-domain emails but keep others as fallback
+                    const idx = md.toLowerCase().indexOf(email);
+                    const window = md.slice(
+                      Math.max(0, idx - 200),
+                      idx + 200,
+                    );
+                    const roleMatch = window.match(roleRegex);
+                    const role = roleMatch?.[0];
+                    const rank =
+                      rankFor(role) +
+                      (emailDomain.endsWith(rootDomain) ? 0 : 0.5);
+                    const existing = contacts.get(email);
+                    if (!existing || rank < existing.rank) {
+                      contacts.set(email, {
+                        email,
+                        role,
+                        source: url,
+                        rank,
+                      });
+                    }
+                  }
+                } catch {
+                  // skip page
+                }
+              }
+
+              const ranked = [...contacts.values()]
+                .sort((a, b) => a.rank - b.rank)
+                .slice(0, 10)
+                .map(({ rank: _r, ...c }) => c);
+
+              return {
+                companyName,
+                domain: rootDomain,
+                pagesScanned: [...pickedUrls],
+                contacts: ranked,
+                primaryContact: ranked.find((c) => c.role) ?? ranked[0],
+                note:
+                  ranked.length === 0
+                    ? "No executive emails found on public pages. Consider asking the user or using a generic alias (e.g. founders@domain) only if appropriate."
+                    : undefined,
+              };
             },
           }),
           draft_pitch: tool({
