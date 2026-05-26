@@ -1,7 +1,7 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useEffect, useRef, useState } from "react";
-import { PanelRightClose, PanelRightOpen } from "lucide-react";
+import { Menu, PanelRightClose, PanelRightOpen } from "lucide-react";
 import {
   Conversation,
   ConversationContent,
@@ -29,11 +29,12 @@ import {
 import { ActivityPanel } from "@/components/activity-panel";
 import { Button } from "@/components/ui/button";
 import { upsertThread, titleFromMessages, type Thread } from "@/lib/threads";
+import { useIsMobile } from "@/hooks/use-mobile";
 import logo from "@/assets/logo.png";
 
 const transport = new DefaultChatTransport({ api: "/api/chat" });
 
-export function ChatWindow({ thread }: { thread: Thread }) {
+export function ChatWindow({ thread, onOpenSidebar }: { thread: Thread; onOpenSidebar?: () => void }) {
   const { messages, sendMessage, status, stop } = useChat({
     id: thread.id,
     messages: thread.messages,
@@ -73,7 +74,11 @@ export function ChatWindow({ thread }: { thread: Thread }) {
   };
 
   const showEmpty = messages.length === 0;
-  const [panelOpen, setPanelOpen] = useState(true);
+  const isMobile = useIsMobile();
+  const [panelOpen, setPanelOpen] = useState(false);
+  useEffect(() => {
+    setPanelOpen(!isMobile);
+  }, [isMobile]);
   const activityCount = (messages as UIMessage[]).reduce(
     (n, m) => n + m.parts.filter((p: any) => p.type?.startsWith("tool-")).length,
     0,
@@ -82,16 +87,30 @@ export function ChatWindow({ thread }: { thread: Thread }) {
   return (
     <div className="flex h-full min-h-0 w-full">
       <div className="flex h-full min-w-0 flex-1 flex-col">
-        <div className="flex items-center justify-between border-b bg-background/60 px-3 py-2">
-          <div className="text-xs text-muted-foreground">
-            {isLoading ? (
-              <span className="flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-                Bot is running
-              </span>
-            ) : (
-              <span>{activityCount > 0 ? `${activityCount} actions in this chat` : "Ready"}</span>
-            )}
+        <div className="flex items-center justify-between gap-2 border-b bg-background/60 px-3 py-2">
+          <div className="flex items-center gap-1 min-w-0">
+            {onOpenSidebar ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="md:hidden"
+                onClick={onOpenSidebar}
+                aria-label="Open menu"
+              >
+                <Menu className="h-4 w-4" />
+              </Button>
+            ) : null}
+            <div className="text-xs text-muted-foreground truncate">
+              {isLoading ? (
+                <span className="flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+                  Bot is running
+                </span>
+              ) : (
+                <span>{activityCount > 0 ? `${activityCount} actions` : "Ready"}</span>
+              )}
+            </div>
           </div>
           <Button
             type="button"

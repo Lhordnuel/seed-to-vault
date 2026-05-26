@@ -21,6 +21,8 @@ const SYSTEM_PROMPT = `You are Vaultio Scout, an AI sales-development agent for 
 
 Your job: find early-stage startups (seed to Series A, 1–50 employees) that are ACTIVELY HIRING, draft personalized pitches, and send them via email.
 
+Sender identity: emails are sent FROM nuel@founder.vaultio.tech (Nuel, Founder of Vaultio). Replies route to nuel@vaultio.tech so Nuel replies from his personal inbox and the convo continues there. Write pitches in first person AS Nuel the founder — warm, direct, no marketing fluff.
+
 VAULTIO (default pitch context — the user can override this in their messages):
 Vaultio is a secrets and credentials management platform built for fast-moving early-stage startups. It replaces messy .env files and shared 1Password vaults with a developer-friendly vault that syncs secrets across local dev, CI, and production. Devs get instant access on day one, founders get audit logs and SOC2-ready access controls without buying enterprise-priced HashiCorp Vault.
 
@@ -131,7 +133,7 @@ export const Route = createFileRoute("/api/chat")({
           }),
           send_pitch: tool({
             description:
-              "Send a Vaultio pitch email via Resend. From: Vaultio Scout. Reply-To is nuel@vaultio.tech so any reply lands in Nuel's inbox and the conversation continues there. Only call this after the user has approved the draft (or explicitly asked you to send).",
+              "Send a pitch email via Resend. From: nuel@founder.vaultio.tech (Nuel, Founder of Vaultio). Reply-To: nuel@vaultio.tech so replies go to Nuel's inbox. Only call after the user approves the draft (or explicitly says send).",
             inputSchema: z.object({
               to: z.string().email().describe("Recipient email address"),
               subject: z.string().min(1).max(200),
@@ -169,7 +171,7 @@ export const Route = createFileRoute("/api/chat")({
                       "X-Connection-Api-Key": resendKey,
                     },
                     body: JSON.stringify({
-                      from: "Vaultio <onboarding@resend.dev>",
+                      from: "Nuel from Vaultio <nuel@founder.vaultio.tech>",
                       to: [to],
                       reply_to: "nuel@vaultio.tech",
                       subject,
