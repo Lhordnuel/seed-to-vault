@@ -73,7 +73,11 @@ export function ChatWindow({ thread, onOpenSidebar }: { thread: Thread; onOpenSi
   };
 
   const showEmpty = messages.length === 0;
-  const [panelOpen, setPanelOpen] = useState(true);
+  const isMobile = useIsMobile();
+  const [panelOpen, setPanelOpen] = useState(false);
+  useEffect(() => {
+    setPanelOpen(!isMobile);
+  }, [isMobile]);
   const activityCount = (messages as UIMessage[]).reduce(
     (n, m) => n + m.parts.filter((p: any) => p.type?.startsWith("tool-")).length,
     0,
