@@ -294,7 +294,7 @@ export const Route = createFileRoute("/api/chat")({
                       "X-Connection-Api-Key": resendKey,
                     },
                     body: JSON.stringify({
-                      from: "Nuel from Vaultio <nuel@founder.vaultio.tech>",
+                      from: "Emmanuel Nwachinemelu <nuel@founder.vaultio.tech>",
                       to: [to],
                       reply_to: "nuel@vaultio.tech",
                       subject,
