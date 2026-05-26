@@ -133,7 +133,7 @@ export const Route = createFileRoute("/api/chat")({
           }),
           send_pitch: tool({
             description:
-              "Send a Vaultio pitch email via Resend. From: Vaultio Scout. Reply-To is nuel@vaultio.tech so any reply lands in Nuel's inbox and the conversation continues there. Only call this after the user has approved the draft (or explicitly asked you to send).",
+              "Send a pitch email via Resend. From: nuel@founder.vaultio.tech (Nuel, Founder of Vaultio). Reply-To: nuel@vaultio.tech so replies go to Nuel's inbox. Only call after the user approves the draft (or explicitly says send).",
             inputSchema: z.object({
               to: z.string().email().describe("Recipient email address"),
               subject: z.string().min(1).max(200),
