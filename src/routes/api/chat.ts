@@ -114,6 +114,128 @@ export const Route = createFileRoute("/api/chat")({
               }
             },
           }),
+          find_executive_contacts: tool({
+            description:
+              "Extract executive contact emails (CEO, Founder, CTO, COO, Head of Eng) from a company website. Maps the site for team/about/contact/leadership pages, scrapes them, and pulls emails with role context. Call this automatically before draft_pitch.",
+            inputSchema: z.object({
+              domain: z
+                .string()
+                .describe(
+                  "Company primary domain or homepage URL, e.g. 'acme.com' or 'https://acme.com'",
+                ),
+              companyName: z.string().optional(),
+            }),
+            execute: async ({ domain, companyName }) => {
+              const homepage = /^https?:\/\//i.test(domain)
+                ? domain
+                : `https://${domain.replace(/^\/+/, "")}`;
+              const rootDomain = new URL(homepage).hostname.replace(/^www\./, "");
+
+              const pickedUrls = new Set<string>([homepage]);
+              try {
+                const mapRes = await firecrawlMap(homepage, {
+                  search: "team about contact leadership founders people",
+                  limit: 30,
+                });
+                const links: string[] =
+                  mapRes?.links ?? mapRes?.data?.links ?? [];
+                const keywords =
+                  /(team|about|contact|leadership|people|founders?|company|who-we-are)/i;
+                for (const l of links) {
+                  if (typeof l === "string" && keywords.test(l)) {
+                    pickedUrls.add(l);
+                    if (pickedUrls.size >= 6) break;
+                  }
+                }
+              } catch {
+                // proceed with homepage only
+              }
+
+              const roleRegex =
+                /\b(ceo|chief executive officer|founder|co-?founder|cto|chief technology officer|coo|chief operating officer|head of engineering|vp engineering)\b/i;
+              const emailRegex =
+                /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+
+              type Contact = {
+                email: string;
+                name?: string;
+                role?: string;
+                source: string;
+                rank: number;
+              };
+              const contacts = new Map<string, Contact>();
+
+              const rankFor = (role?: string) => {
+                if (!role) return 5;
+                const r = role.toLowerCase();
+                if (/(ceo|chief executive|^founder|co-?founder)/.test(r)) return 1;
+                if (/(cto|chief technology)/.test(r)) return 2;
+                if (/(coo|chief operating)/.test(r)) return 3;
+                if (/(head of engineering|vp engineering)/.test(r)) return 4;
+                return 5;
+              };
+
+              for (const url of pickedUrls) {
+                try {
+                  const data = await firecrawlScrape(url);
+                  const md: string =
+                    data?.data?.markdown ?? data?.markdown ?? "";
+                  if (!md) continue;
+                  const emails = md.match(emailRegex) ?? [];
+                  for (const rawEmail of emails) {
+                    const email = rawEmail.toLowerCase();
+                    if (/\.(png|jpg|jpeg|svg|gif|webp)$/i.test(email)) continue;
+                    if (
+                      /(sentry|wixpress|example\.com|noreply|no-reply)/i.test(
+                        email,
+                      )
+                    )
+                      continue;
+                    const emailDomain = email.split("@")[1] ?? "";
+                    // prefer same-domain emails but keep others as fallback
+                    const idx = md.toLowerCase().indexOf(email);
+                    const window = md.slice(
+                      Math.max(0, idx - 200),
+                      idx + 200,
+                    );
+                    const roleMatch = window.match(roleRegex);
+                    const role = roleMatch?.[0];
+                    const rank =
+                      rankFor(role) +
+                      (emailDomain.endsWith(rootDomain) ? 0 : 0.5);
+                    const existing = contacts.get(email);
+                    if (!existing || rank < existing.rank) {
+                      contacts.set(email, {
+                        email,
+                        role,
+                        source: url,
+                        rank,
+                      });
+                    }
+                  }
+                } catch {
+                  // skip page
+                }
+              }
+
+              const ranked = [...contacts.values()]
+                .sort((a, b) => a.rank - b.rank)
+                .slice(0, 10)
+                .map(({ rank: _r, ...c }) => c);
+
+              return {
+                companyName,
+                domain: rootDomain,
+                pagesScanned: [...pickedUrls],
+                contacts: ranked,
+                primaryContact: ranked.find((c) => c.role) ?? ranked[0],
+                note:
+                  ranked.length === 0
+                    ? "No executive emails found on public pages. Consider asking the user or using a generic alias (e.g. founders@domain) only if appropriate."
+                    : undefined,
+              };
+            },
+          }),
           draft_pitch: tool({
             description:
               "Draft a personalized cold outreach pitch for Vaultio targeted at a specific company. Use after you have details about the company.",
