@@ -129,7 +129,13 @@ export function ChatWindow({ thread, onOpenSidebar }: { thread: Thread; onOpenSi
 
         <Conversation className="flex-1">
           <ConversationContent>
-            {showEmpty ? <EmptyState /> : null}
+            {showEmpty ? (
+              <EmptyState
+                onPick={(t) => {
+                  sendMessage({ text: t });
+                }}
+              />
+            ) : null}
             {messages.map((m) => (
               <Message key={m.id} from={m.role}>
                 <MessageContent>
@@ -197,7 +203,7 @@ export function ChatWindow({ thread, onOpenSidebar }: { thread: Thread; onOpenSi
   );
 }
 
-function EmptyState() {
+function EmptyState({ onPick }: { onPick: (text: string) => void }) {
   const suggestions = [
     "Find AI infra startups on YC hiring backend engineers",
     "Search Wellfound for seed-stage fintech startups hiring engineers",
@@ -212,20 +218,20 @@ function EmptyState() {
       </p>
       <div className="mt-2 flex w-full flex-col gap-2">
         {suggestions.map((s) => (
-          <SuggestionPill key={s} text={s} />
+          <button
+            key={s}
+            type="button"
+            onClick={() => onPick(s)}
+            className="rounded-md border bg-muted/30 px-3 py-2 text-left text-sm text-muted-foreground transition hover:bg-muted hover:text-foreground"
+          >
+            {s}
+          </button>
         ))}
       </div>
     </div>
   );
 }
 
-function SuggestionPill({ text }: { text: string }) {
-  return (
-    <div className="rounded-md border bg-muted/30 px-3 py-2 text-left text-sm text-muted-foreground">
-      {text}
-    </div>
-  );
-}
 
 type ToolPartShape = {
   type: string;
