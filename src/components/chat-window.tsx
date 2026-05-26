@@ -29,6 +29,7 @@ import {
 import { ActivityPanel } from "@/components/activity-panel";
 import { Button } from "@/components/ui/button";
 import { upsertThread, titleFromMessages, type Thread } from "@/lib/threads";
+import { useIsMobile } from "@/hooks/use-mobile";
 import logo from "@/assets/logo.png";
 
 const transport = new DefaultChatTransport({ api: "/api/chat" });
