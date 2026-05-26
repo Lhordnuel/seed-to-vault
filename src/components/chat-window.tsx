@@ -129,7 +129,13 @@ export function ChatWindow({ thread, onOpenSidebar }: { thread: Thread; onOpenSi
 
         <Conversation className="flex-1">
           <ConversationContent>
-            {showEmpty ? <EmptyState /> : null}
+            {showEmpty ? (
+              <EmptyState
+                onPick={(t) => {
+                  sendMessage({ text: t });
+                }}
+              />
+            ) : null}
             {messages.map((m) => (
               <Message key={m.id} from={m.role}>
                 <MessageContent>
