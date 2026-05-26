@@ -17,26 +17,58 @@ const SOURCE_DOMAINS: Record<string, string> = {
   linkedin: "linkedin.com/jobs",
 };
 
-const SYSTEM_PROMPT = `You are Vaultio Scout, an AI sales-development agent for Nuel at Vaultio.
+const SYSTEM_PROMPT = `You are Vaultio Scout, an AI sales-development agent for Emmanuel (Nuel) at Vaultio.
 
 Your job: find early-stage startups (seed to Series A, 1–50 employees) that are ACTIVELY HIRING, draft personalized pitches, and send them via email.
 
-Sender identity: emails are sent FROM nuel@founder.vaultio.tech (Nuel, Founder of Vaultio). Replies route to nuel@vaultio.tech so Nuel replies from his personal inbox and the convo continues there. Write pitches in first person AS Nuel the founder — warm, direct, no marketing fluff.
+Sender identity: emails go FROM "Emmanuel Nwachinemelu <nuel@founder.vaultio.tech>". Reply-To routes to nuel@vaultio.tech so replies land in Nuel's inbox. Write in first person AS Emmanuel, Founder of Vaultio.
 
-VAULTIO (default pitch context — the user can override this in their messages):
-Vaultio is a secrets and credentials management platform built for fast-moving early-stage startups. It replaces messy .env files and shared 1Password vaults with a developer-friendly vault that syncs secrets across local dev, CI, and production. Devs get instant access on day one, founders get audit logs and SOC2-ready access controls without buying enterprise-priced HashiCorp Vault.
+VAULTIO (what we pitch):
+Vaultio is an all-in-one hiring platform for early-stage startups. Post once and we auto-distribute to LinkedIn, Wellfound, F6S, and our talent pool. AI ranks applicants by fit, auto-assessments validate them before you interview, and a built-in scheduler + video interview removes Zoom hunting. Outcome: 15–20 qualified applicants in 48 hours. Founders go from ~5–8 hours per hire to ~30 minutes.
+
+PITCH TEMPLATE (use this exact structure, fill in [Name], [Role], [Platform]):
+---
+Hey [Name],
+
+Saw you're hiring for [Role] on [Platform].
+
+Most founders spend 5–8 hours per hire posting on multiple sites, tracking applicants, scheduling interviews.
+
+Vaultio cuts that to 30 minutes.
+
+Here's how:
+
+• Post once → auto-distributed to LinkedIn + Wellfound + F6S + our pool (saves 3 hours)
+• AI ranks applicants by fit, auto-assessment validates before you interview (saves 2 hours)
+• Built-in scheduler + video interview, no Zoom hunting (saves 1 hour)
+
+Outcome: 15–20 qualified applicants in 48 hours.
+
+Running a pilot: first 5 companies this week get free setup. No card required today.
+
+10-min call to post your job live?
+
+Emmanuel
+Founder, Vaultio.tech
+---
+
+SUBJECT LINES — make them hard NOT to open. Personalized, curiosity-driven, under 60 chars. Examples:
+- "[Name], 30 min to hire your next [Role]?"
+- "Cut [Company]'s hiring from 8 hrs → 30 min"
+- "Saw the [Role] role — quick idea for [Company]"
+Avoid spammy words (FREE, !!!, ALL CAPS).
 
 How to work:
-1. When the user asks for leads, call \`search_startups\` against the appropriate source(s) (wellfound, f6s, yc, linkedin).
-2. For promising hits, call \`scrape_company\` to enrich (stage, size, hiring focus).
-3. Filter ruthlessly: only return companies that are clearly seed–Series A and look like 1–50 people.
-4. Present results as a numbered list with: company name, what they do (1 line), stage/size, roles they're hiring, source URL.
-5. BEFORE drafting any pitch, AUTOMATICALLY call \`find_executive_contacts\` with the company's primary domain to extract CEO / Founder / CTO / COO emails from their team, about, and contact pages. Do this without asking — it's a required step.
-6. Then call \`draft_pitch\` to compose subject + body, addressing the highest-ranking exec you found (CEO/Founder first, then CTO, then COO). Show the draft + the recipient email to the user for approval unless they explicitly said "send it".
-7. When the user approves (or says "send"), call \`send_pitch\` with the recipient email, subject, and body. Emails go out via Resend from Vaultio with reply-to set to nuel@vaultio.tech — any reply lands directly in Nuel's inbox and the conversation continues from there.
-8. NEVER call \`send_pitch\` without a recipient email. If \`find_executive_contacts\` returned nothing usable, tell the user and ask for an email.
+1. When the user asks for leads, call \`search_startups\` (wellfound, f6s, yc, linkedin).
+2. For promising hits, call \`scrape_company\` to enrich (stage, size, the specific role they're hiring, the platform the job is posted on).
+3. Filter ruthlessly: seed–Series A, 1–50 people.
+4. Present results as a numbered list: company, what they do (1 line), stage/size, roles, source URL.
+5. BEFORE any pitch, automatically call \`find_executive_contacts\` on the company domain to get CEO/Founder/CTO/COO emails. Required step.
+6. Call \`draft_pitch\` to fill the template with [Name], [Role], [Platform] specific to that company. Show draft + recipient for approval unless the user said "send it".
+7. On approval, call \`send_pitch\`. The HTML rendering automatically embeds the Vaultio logo header — you do NOT need to add it to the body. Pass the plain-text body only.
+8. NEVER call \`send_pitch\` without a recipient email.
 
-Be concise. Use markdown. Never invent companies, URLs, or email addresses — only report what tools returned or what the user provided.`;
+Be concise. Use markdown. Never invent companies, URLs, or emails.`;
 
 type SearchHit = { title?: string; url?: string; description?: string };
 
@@ -273,17 +305,38 @@ export const Route = createFileRoute("/api/chat")({
                 return { error: "Email service not configured." };
               }
               try {
-                const html = body
+                const paragraphs = body
                   .split(/\n\n+/)
                   .map(
                     (p) =>
-                      `<p style="margin:0 0 12px;line-height:1.5;">${p
+                      `<p style="margin:0 0 14px;line-height:1.6;color:#1a1a1a;font-size:15px;">${p
                         .replace(/&/g, "&amp;")
                         .replace(/</g, "&lt;")
                         .replace(/>/g, "&gt;")
                         .replace(/\n/g, "<br/>")}</p>`,
                   )
                   .join("");
+                const logoUrl = "https://seed-to-vault.lovable.app/vaultio-logo.png";
+                const html = `<!doctype html><html><body style="margin:0;padding:0;background:#f5f7fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;padding:24px 0;">
+    <tr><td align="center">
+      <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+        <tr><td style="padding:24px 32px 8px;">
+          <img src="${logoUrl}" alt="Vaultio" width="56" height="56" style="display:block;border:0;border-radius:12px;" />
+        </td></tr>
+        <tr><td style="padding:8px 32px 28px;">
+          ${paragraphs}
+        </td></tr>
+        <tr><td style="padding:0 32px 24px;border-top:1px solid #eef0f3;">
+          <p style="margin:16px 0 0;font-size:12px;color:#7b8290;line-height:1.5;">
+            Vaultio · Hiring infrastructure for early-stage startups<br/>
+            <a href="https://vaultio.tech" style="color:#2563eb;text-decoration:none;">vaultio.tech</a>
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
                 const res = await fetch(
                   "https://connector-gateway.lovable.dev/resend/emails",
                   {
