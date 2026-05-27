@@ -9,6 +9,11 @@ import {
 import { z } from "zod";
 import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
 import { firecrawlMap, firecrawlScrape, firecrawlSearch } from "@/lib/firecrawl.server";
+import {
+  apolloSearchOrganizations,
+  apolloFindExecutives,
+  apolloEnrichPerson,
+} from "@/lib/apollo.server";
 
 const SOURCE_DOMAINS: Record<string, string> = {
   wellfound: "wellfound.com",
