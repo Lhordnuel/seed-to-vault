@@ -403,7 +403,7 @@ export const Route = createFileRoute("/api/chat")({
           }),
           send_pitch: tool({
             description:
-              "Send a pitch email via Resend. From: nuel@founder.vaultio.tech (Nuel, Founder of Vaultio). Reply-To: nuel@vaultio.tech so replies go to Nuel's inbox. Only call after the user approves the draft (or explicitly says send).",
+              "Send a SINGLE pitch email via Resend. From: nuel@founder.vaultio.tech. Reply-To: nuel@vaultio.tech. Use bulk_send_pitch for multiple recipients.",
             inputSchema: z.object({
               to: z.string().email().describe("Recipient email address"),
               subject: z.string().min(1).max(200),
@@ -414,76 +414,79 @@ export const Route = createFileRoute("/api/chat")({
               companyName: z.string().optional(),
             }),
             execute: async ({ to, subject, body, companyName }) => {
-              const resendKey = process.env.RESEND_API_KEY;
-              const lovableKey = process.env.LOVABLE_API_KEY;
-              if (!resendKey || !lovableKey) {
-                return { error: "Email service not configured." };
-              }
-              try {
-                const paragraphs = body
-                  .split(/\n\n+/)
-                  .map(
-                    (p) =>
-                      `<p style="margin:0 0 14px;line-height:1.6;color:#1a1a1a;font-size:15px;">${p
-                        .replace(/&/g, "&amp;")
-                        .replace(/</g, "&lt;")
-                        .replace(/>/g, "&gt;")
-                        .replace(/\n/g, "<br/>")}</p>`,
-                  )
-                  .join("");
-                const html = `<!doctype html><html><body style="margin:0;padding:0;background:#f5f7fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;padding:24px 0;">
-    <tr><td align="center">
-      <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
-        <tr><td style="padding:24px 32px 28px;">
-          ${paragraphs}
-        </td></tr>
-        <tr><td style="padding:0 32px 24px;border-top:1px solid #eef0f3;">
-          <p style="margin:16px 0 0;font-size:12px;color:#7b8290;line-height:1.5;">
-            Vaultio · Hiring infrastructure for early-stage startups<br/>
-            <a href="https://vaultio.tech" style="color:#2563eb;text-decoration:none;">vaultio.tech</a>
-          </p>
-        </td></tr>
-      </table>
-    </td></tr>
-  </table>
-</body></html>`;
-                const res = await fetch(
-                  "https://connector-gateway.lovable.dev/resend/emails",
-                  {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      Authorization: `Bearer ${lovableKey}`,
-                      "X-Connection-Api-Key": resendKey,
-                    },
-                    body: JSON.stringify({
-                      from: "Emmanuel Nwachinemelu <nuel@founder.vaultio.tech>",
-                      to: [to],
-                      reply_to: "nuel@vaultio.tech",
-                      subject,
-                      text: body,
-                      html,
-                    }),
-                  },
-                );
-                const data = await res.json().catch(() => ({}));
-                if (!res.ok) {
-                  return {
-                    error: `Resend ${res.status}: ${JSON.stringify(data)}`,
-                  };
+              return sendPitchEmail({ to, subject, body, companyName });
+            },
+          }),
+          bulk_send_pitch: tool({
+            description:
+              "Send pitches to MULTIPLE recipients in one call. Rate-limits to ~1 email per 1.2s (Resend safe), dedupes against emails already sent in this server session, and returns a summary {sent, skippedDuplicates, failed}. Each recipient gets their own subject + body so you can personalize.",
+            inputSchema: z.object({
+              recipients: z
+                .array(
+                  z.object({
+                    to: z.string().email(),
+                    subject: z.string().min(1).max(200),
+                    body: z.string().min(1),
+                    companyName: z.string().optional(),
+                  }),
+                )
+                .min(1)
+                .max(50),
+              delayMs: z
+                .number()
+                .min(500)
+                .max(10000)
+                .default(1200)
+                .describe("Delay between sends in ms (default 1200)"),
+            }),
+            execute: async ({ recipients, delayMs }) => {
+              const sent: Array<{ to: string; subject: string; resendId?: string; companyName?: string }> = [];
+              const skippedDuplicates: string[] = [];
+              const skippedInBatch: string[] = [];
+              const failed: Array<{ to: string; error: string }> = [];
+              const seenInBatch = new Set<string>();
+
+              for (let i = 0; i < recipients.length; i++) {
+                const r = recipients[i];
+                const email = r.to.toLowerCase().trim();
+                if (seenInBatch.has(email)) {
+                  skippedInBatch.push(email);
+                  continue;
                 }
-                return {
-                  sent: true,
-                  to,
-                  subject,
-                  companyName,
-                  replyTo: "nuel@vaultio.tech",
-                  resendId: data?.id,
-                };
-              } catch (e) {
-                return { error: (e as Error).message };
+                seenInBatch.add(email);
+                if (sentEmailsThisSession.has(email)) {
+                  skippedDuplicates.push(email);
+                  continue;
+                }
+                if (i > 0) await new Promise((res) => setTimeout(res, delayMs));
+                const result = await sendPitchEmail({
+                  to: r.to,
+                  subject: r.subject,
+                  body: r.body,
+                  companyName: r.companyName,
+                });
+                if (result.sent) {
+                  sentEmailsThisSession.add(email);
+                  sent.push({
+                    to: r.to,
+                    subject: r.subject,
+                    companyName: r.companyName,
+                    resendId: result.resendId,
+                  });
+                } else {
+                  failed.push({ to: r.to, error: result.error ?? "unknown error" });
+                }
               }
+              return {
+                total: recipients.length,
+                sentCount: sent.length,
+                skippedDuplicatesCount: skippedDuplicates.length + skippedInBatch.length,
+                failedCount: failed.length,
+                sent,
+                skippedDuplicates: [...skippedDuplicates, ...skippedInBatch],
+                failed,
+                rateLimitMs: delayMs,
+              };
             },
           }),
         };
