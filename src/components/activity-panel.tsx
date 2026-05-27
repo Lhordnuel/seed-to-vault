@@ -121,6 +121,27 @@ function syncLeadsFromActivity(items: ActivityItem[]) {
     if (a.tool === "send_pitch" && a.output?.sent && a.input?.to) {
       markContacted(a.input.to as string, a.input.subject as string | undefined);
     }
+    if (a.tool === "bulk_send_pitch" && Array.isArray(a.output?.sent)) {
+      (a.output.sent as any[]).forEach((s) => {
+        if (s?.to) markContacted(s.to as string, s.subject as string | undefined);
+      });
+    }
+    if (a.tool === "apollo_find_contacts" && Array.isArray(a.output?.contacts)) {
+      const companyName: string | undefined =
+        a.output.companyName ?? a.input?.companyName;
+      const domain: string | undefined = a.output.domain ?? a.input?.domain;
+      (a.output.contacts as any[]).forEach((c) => {
+        if (!c?.email) return;
+        upsertLead({
+          email: c.email,
+          name: c.name,
+          role: c.title,
+          companyName,
+          domain,
+          source: c.linkedin,
+        });
+      });
+    }
   });
 }
 
@@ -139,6 +160,7 @@ function ToolIcon({ tool }: { tool: string }) {
     return <Users className="h-3.5 w-3.5" />;
   if (tool === "draft_pitch") return <Mail className="h-3.5 w-3.5" />;
   if (tool === "send_pitch") return <Mail className="h-3.5 w-3.5" />;
+  if (tool === "bulk_send_pitch") return <Mail className="h-3.5 w-3.5" />;
   return <Activity className="h-3.5 w-3.5" />;
 }
 
@@ -148,10 +170,16 @@ function toolLabel(tool: string, input: any) {
   if (tool === "scrape_company") return `Scraping ${input?.url ?? ""}`;
   if (tool === "find_executive_contacts")
     return `Finding execs at ${input?.companyName ?? input?.domain ?? ""}`;
+  if (tool === "apollo_find_contacts")
+    return `Apollo contacts for ${input?.companyName ?? input?.domain ?? ""}`;
+  if (tool === "apollo_search_startups")
+    return `Apollo search — "${input?.keywords ?? ""}"`;
   if (tool === "draft_pitch")
     return `Drafting pitch for ${input?.companyName ?? ""}`;
   if (tool === "send_pitch")
     return `Sending to ${input?.to ?? ""}`;
+  if (tool === "bulk_send_pitch")
+    return `Bulk sending to ${input?.recipients?.length ?? 0} recipients`;
   return tool;
 }
 
