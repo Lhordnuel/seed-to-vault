@@ -9,6 +9,11 @@ import {
 import { z } from "zod";
 import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
 import { firecrawlMap, firecrawlScrape, firecrawlSearch } from "@/lib/firecrawl.server";
+import {
+  apolloSearchOrganizations,
+  apolloFindExecutives,
+  apolloEnrichPerson,
+} from "@/lib/apollo.server";
 
 const SOURCE_DOMAINS: Record<string, string> = {
   wellfound: "wellfound.com",
@@ -59,13 +64,13 @@ SUBJECT LINES — make them hard NOT to open. Personalized, curiosity-driven, un
 Avoid spammy words (FREE, !!!, ALL CAPS).
 
 How to work:
-1. When the user asks for leads, call \`search_startups\` (wellfound, f6s, yc, linkedin).
-2. For promising hits, call \`scrape_company\` to enrich (stage, size, the specific role they're hiring, the platform the job is posted on).
+1. PRIMARY discovery: call \`apollo_search_startups\` first — it returns structured seed–Series A companies (1–50 employees) with domain, stage, size, and industry directly from Apollo. Use \`search_startups\` (Wellfound/F6S/YC/LinkedIn via Firecrawl) only as a fallback or to verify they are actively hiring.
+2. For job-context enrichment (the specific role + platform), call \`scrape_company\` on a job posting URL.
 3. Filter ruthlessly: seed–Series A, 1–50 people.
 4. Present results as a numbered list: company, what they do (1 line), stage/size, roles, source URL.
-5. BEFORE any pitch, automatically call \`find_executive_contacts\` on the company domain to get CEO/Founder/CTO/COO emails. Required step.
+5. BEFORE any pitch, call \`apollo_find_contacts\` on the company domain as the PRIMARY source for CEO/Founder/CTO/COO emails. If Apollo returns no email, fall back to \`find_executive_contacts\` (Firecrawl scrape of team/about pages). Required step.
 6. Call \`draft_pitch\` to fill the template with [Name], [Role], [Platform] specific to that company. Show draft + recipient for approval unless the user said "send it".
-7. On approval, call \`send_pitch\`. The HTML rendering automatically embeds the Vaultio logo header — you do NOT need to add it to the body. Pass the plain-text body only.
+7. On approval, call \`send_pitch\`. The HTML rendering automatically embeds the Vaultio logo header — pass plain-text body only.
 8. NEVER call \`send_pitch\` without a recipient email.
 
 Be concise. Use markdown. Never invent companies, URLs, or emails.`;
@@ -85,6 +90,108 @@ export const Route = createFileRoute("/api/chat")({
         const gateway = createLovableAiGatewayProvider(apiKey);
 
         const tools = {
+          apollo_search_startups: tool({
+            description:
+              "PRIMARY startup discovery via Apollo. Returns structured companies filtered to 1–50 employees and Pre-Seed/Seed/Series A funding. Use this first before falling back to Firecrawl source searches.",
+            inputSchema: z.object({
+              keywords: z
+                .string()
+                .describe(
+                  "Industry/role keywords, e.g. 'AI infrastructure', 'fintech', 'developer tools'",
+                ),
+              locations: z
+                .array(z.string())
+                .optional()
+                .describe("Optional locations, e.g. ['United States', 'San Francisco']"),
+              perPage: z.number().min(1).max(50).default(25),
+              page: z.number().min(1).default(1),
+            }),
+            execute: async ({ keywords, locations, perPage, page }) => {
+              try {
+                const orgs = await apolloSearchOrganizations({
+                  keywords,
+                  locations,
+                  perPage,
+                  page,
+                });
+                return {
+                  count: orgs.length,
+                  companies: orgs.map((o) => ({
+                    name: o.name,
+                    domain: o.primary_domain ?? o.website_url,
+                    website: o.website_url,
+                    employees: o.estimated_num_employees,
+                    stage: o.latest_funding_stage,
+                    industry: o.industry,
+                    description: o.short_description,
+                    linkedin: o.linkedin_url,
+                  })),
+                };
+              } catch (e) {
+                return { error: (e as Error).message, companies: [] };
+              }
+            },
+          }),
+          apollo_find_contacts: tool({
+            description:
+              "PRIMARY executive contact lookup via Apollo. Given a company domain, returns CEO/Founder/CTO/COO with verified emails when available. Call this before find_executive_contacts.",
+            inputSchema: z.object({
+              domain: z.string().describe("Company domain, e.g. 'acme.com'"),
+              companyName: z.string().optional(),
+              reveal: z
+                .boolean()
+                .default(true)
+                .describe("Attempt to reveal/enrich emails (uses Apollo credits)"),
+            }),
+            execute: async ({ domain, companyName, reveal }) => {
+              try {
+                const people = await apolloFindExecutives({
+                  domain,
+                  organizationName: companyName,
+                  perPage: 10,
+                });
+                const enriched = await Promise.all(
+                  people.map(async (p) => {
+                    let email = p.email;
+                    if (reveal && !email && p.first_name && p.last_name) {
+                      try {
+                        const m = await apolloEnrichPerson({
+                          firstName: p.first_name,
+                          lastName: p.last_name,
+                          domain,
+                          organizationName: companyName,
+                          linkedinUrl: p.linkedin_url,
+                        });
+                        email = m?.email ?? email;
+                      } catch {
+                        /* skip */
+                      }
+                    }
+                    return {
+                      name:
+                        p.name ?? [p.first_name, p.last_name].filter(Boolean).join(" "),
+                      title: p.title,
+                      email,
+                      linkedin: p.linkedin_url,
+                    };
+                  }),
+                );
+                const withEmail = enriched.filter((p) => p.email);
+                return {
+                  companyName,
+                  domain,
+                  contacts: enriched,
+                  primaryContact: withEmail[0] ?? enriched[0] ?? null,
+                  note:
+                    withEmail.length === 0
+                      ? "Apollo returned no verified emails. Fall back to find_executive_contacts."
+                      : undefined,
+                };
+              } catch (e) {
+                return { error: (e as Error).message, contacts: [] };
+              }
+            },
+          }),
           search_startups: tool({
             description:
               "Search for startups hiring on a given source. Use this to discover candidate companies. Returns a list of result URLs and snippets.",
