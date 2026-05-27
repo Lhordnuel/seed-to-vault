@@ -121,6 +121,27 @@ function syncLeadsFromActivity(items: ActivityItem[]) {
     if (a.tool === "send_pitch" && a.output?.sent && a.input?.to) {
       markContacted(a.input.to as string, a.input.subject as string | undefined);
     }
+    if (a.tool === "bulk_send_pitch" && Array.isArray(a.output?.sent)) {
+      (a.output.sent as any[]).forEach((s) => {
+        if (s?.to) markContacted(s.to as string, s.subject as string | undefined);
+      });
+    }
+    if (a.tool === "apollo_find_contacts" && Array.isArray(a.output?.contacts)) {
+      const companyName: string | undefined =
+        a.output.companyName ?? a.input?.companyName;
+      const domain: string | undefined = a.output.domain ?? a.input?.domain;
+      (a.output.contacts as any[]).forEach((c) => {
+        if (!c?.email) return;
+        upsertLead({
+          email: c.email,
+          name: c.name,
+          role: c.title,
+          companyName,
+          domain,
+          source: c.linkedin,
+        });
+      });
+    }
   });
 }
 
