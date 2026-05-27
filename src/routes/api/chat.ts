@@ -85,6 +85,78 @@ Be concise. Use markdown. Never invent companies, URLs, or emails.`;
 
 type SearchHit = { title?: string; url?: string; description?: string };
 
+// Server-session dedup: prevents the same email from receiving multiple pitches
+// while this Worker instance is warm. Resets on cold start.
+const sentEmailsThisSession = new Set<string>();
+
+async function sendPitchEmail(opts: {
+  to: string;
+  subject: string;
+  body: string;
+  companyName?: string;
+}): Promise<{ sent: boolean; to: string; subject: string; companyName?: string; replyTo?: string; resendId?: string; error?: string }> {
+  const { to, subject, body, companyName } = opts;
+  const resendKey = process.env.RESEND_API_KEY;
+  const lovableKey = process.env.LOVABLE_API_KEY;
+  if (!resendKey || !lovableKey) {
+    return { sent: false, to, subject, error: "Email service not configured." };
+  }
+  try {
+    const paragraphs = body
+      .split(/\n\n+/)
+      .map(
+        (p) =>
+          `<p style="margin:0 0 14px;line-height:1.6;color:#1a1a1a;font-size:15px;">${p
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/\n/g, "<br/>")}</p>`,
+      )
+      .join("");
+    const html = `<!doctype html><html><body style="margin:0;padding:0;background:#f5f7fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;padding:24px 0;">
+    <tr><td align="center">
+      <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+        <tr><td style="padding:24px 32px 28px;">
+          ${paragraphs}
+        </td></tr>
+        <tr><td style="padding:0 32px 24px;border-top:1px solid #eef0f3;">
+          <p style="margin:16px 0 0;font-size:12px;color:#7b8290;line-height:1.5;">
+            Vaultio · Hiring infrastructure for early-stage startups<br/>
+            <a href="https://vaultio.tech" style="color:#2563eb;text-decoration:none;">vaultio.tech</a>
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+    const res = await fetch("https://connector-gateway.lovable.dev/resend/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${lovableKey}`,
+        "X-Connection-Api-Key": resendKey,
+      },
+      body: JSON.stringify({
+        from: "Emmanuel Nwachinemelu <nuel@founder.vaultio.tech>",
+        to: [to],
+        reply_to: "nuel@vaultio.tech",
+        subject,
+        text: body,
+        html,
+      }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { id?: string };
+    if (!res.ok) {
+      return { sent: false, to, subject, error: `Resend ${res.status}: ${JSON.stringify(data)}` };
+    }
+    sentEmailsThisSession.add(to.toLowerCase().trim());
+    return { sent: true, to, subject, companyName, replyTo: "nuel@vaultio.tech", resendId: data?.id };
+  } catch (e) {
+    return { sent: false, to, subject, error: (e as Error).message };
+  }
+}
+
 export const Route = createFileRoute("/api/chat")({
   server: {
     handlers: {
