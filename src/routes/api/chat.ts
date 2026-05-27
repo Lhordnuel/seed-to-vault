@@ -90,6 +90,108 @@ export const Route = createFileRoute("/api/chat")({
         const gateway = createLovableAiGatewayProvider(apiKey);
 
         const tools = {
+          apollo_search_startups: tool({
+            description:
+              "PRIMARY startup discovery via Apollo. Returns structured companies filtered to 1–50 employees and Pre-Seed/Seed/Series A funding. Use this first before falling back to Firecrawl source searches.",
+            inputSchema: z.object({
+              keywords: z
+                .string()
+                .describe(
+                  "Industry/role keywords, e.g. 'AI infrastructure', 'fintech', 'developer tools'",
+                ),
+              locations: z
+                .array(z.string())
+                .optional()
+                .describe("Optional locations, e.g. ['United States', 'San Francisco']"),
+              perPage: z.number().min(1).max(50).default(25),
+              page: z.number().min(1).default(1),
+            }),
+            execute: async ({ keywords, locations, perPage, page }) => {
+              try {
+                const orgs = await apolloSearchOrganizations({
+                  keywords,
+                  locations,
+                  perPage,
+                  page,
+                });
+                return {
+                  count: orgs.length,
+                  companies: orgs.map((o) => ({
+                    name: o.name,
+                    domain: o.primary_domain ?? o.website_url,
+                    website: o.website_url,
+                    employees: o.estimated_num_employees,
+                    stage: o.latest_funding_stage,
+                    industry: o.industry,
+                    description: o.short_description,
+                    linkedin: o.linkedin_url,
+                  })),
+                };
+              } catch (e) {
+                return { error: (e as Error).message, companies: [] };
+              }
+            },
+          }),
+          apollo_find_contacts: tool({
+            description:
+              "PRIMARY executive contact lookup via Apollo. Given a company domain, returns CEO/Founder/CTO/COO with verified emails when available. Call this before find_executive_contacts.",
+            inputSchema: z.object({
+              domain: z.string().describe("Company domain, e.g. 'acme.com'"),
+              companyName: z.string().optional(),
+              reveal: z
+                .boolean()
+                .default(true)
+                .describe("Attempt to reveal/enrich emails (uses Apollo credits)"),
+            }),
+            execute: async ({ domain, companyName, reveal }) => {
+              try {
+                const people = await apolloFindExecutives({
+                  domain,
+                  organizationName: companyName,
+                  perPage: 10,
+                });
+                const enriched = await Promise.all(
+                  people.map(async (p) => {
+                    let email = p.email;
+                    if (reveal && !email && p.first_name && p.last_name) {
+                      try {
+                        const m = await apolloEnrichPerson({
+                          firstName: p.first_name,
+                          lastName: p.last_name,
+                          domain,
+                          organizationName: companyName,
+                          linkedinUrl: p.linkedin_url,
+                        });
+                        email = m?.email ?? email;
+                      } catch {
+                        /* skip */
+                      }
+                    }
+                    return {
+                      name:
+                        p.name ?? [p.first_name, p.last_name].filter(Boolean).join(" "),
+                      title: p.title,
+                      email,
+                      linkedin: p.linkedin_url,
+                    };
+                  }),
+                );
+                const withEmail = enriched.filter((p) => p.email);
+                return {
+                  companyName,
+                  domain,
+                  contacts: enriched,
+                  primaryContact: withEmail[0] ?? enriched[0] ?? null,
+                  note:
+                    withEmail.length === 0
+                      ? "Apollo returned no verified emails. Fall back to find_executive_contacts."
+                      : undefined,
+                };
+              } catch (e) {
+                return { error: (e as Error).message, contacts: [] };
+              }
+            },
+          }),
           search_startups: tool({
             description:
               "Search for startups hiring on a given source. Use this to discover candidate companies. Returns a list of result URLs and snippets.",
