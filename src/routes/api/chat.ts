@@ -98,34 +98,58 @@ async function sendPitchEmail(opts: {
     return { sent: false, to, subject, error: "Email service not configured." };
   }
   try {
-    const paragraphs = body
+    const esc = (s: string) =>
+      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const blocks = body
       .split(/\n\n+/)
-      .map(
-        (p) =>
-          `<p style="margin:0 0 14px;line-height:1.6;color:#1a1a1a;font-size:15px;">${p
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/\n/g, "<br/>")}</p>`,
-      )
+      .map((block) => {
+        const lines = block.split(/\n/).map((l) => l.trim()).filter(Boolean);
+        const isList = lines.length > 1 && lines.every((l) => /^[-•*]\s+/.test(l));
+        if (isList) {
+          const items = lines
+            .map(
+              (l) =>
+                `<li style="margin:0 0 10px;line-height:1.55;color:#e8e6e1;font-size:15px;">${esc(
+                  l.replace(/^[-•*]\s+/, ""),
+                )}</li>`,
+            )
+            .join("");
+          return `<ul style="margin:0 0 18px;padding-left:20px;">${items}</ul>`;
+        }
+        return `<p style="margin:0 0 16px;line-height:1.65;color:#e8e6e1;font-size:15px;">${esc(
+          block,
+        ).replace(/\n/g, "<br/>")}</p>`;
+      })
       .join("");
-    const html = `<!doctype html><html><body style="margin:0;padding:0;background:#f5f7fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;padding:24px 0;">
+    const headline = "The hiring infrastructure for growing teams";
+    const html = `<!doctype html><html><body style="margin:0;padding:0;background:#0f0f10;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f10;padding:0;">
     <tr><td align="center">
-      <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
-        <tr><td style="padding:24px 32px 28px;">
-          ${paragraphs}
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+        <tr><td style="background:#6b6cff;padding:22px 32px;">
+          <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:26px;font-weight:800;color:#0f0f10;letter-spacing:-0.5px;">vaultio.</div>
         </td></tr>
-        <tr><td style="padding:0 32px 24px;border-top:1px solid #eef0f3;">
-          <p style="margin:16px 0 0;font-size:12px;color:#7b8290;line-height:1.5;">
-            Vaultio · Hiring infrastructure for early-stage startups<br/>
-            <a href="https://vaultio.tech" style="color:#2563eb;text-decoration:none;">vaultio.tech</a>
+        <tr><td style="background:#1c1b1a;padding:40px 32px 8px;">
+          <h1 style="margin:0 0 28px;font-size:30px;line-height:1.2;font-weight:700;color:#f5f3ee;text-align:center;letter-spacing:-0.5px;">${headline}</h1>
+        </td></tr>
+        <tr><td style="background:#1c1b1a;padding:8px 32px 24px;">
+          ${blocks}
+        </td></tr>
+        <tr><td align="center" style="background:#1c1b1a;padding:8px 32px 44px;">
+          <a href="https://vaultio.tech" style="display:inline-block;background:#f5f3ee;color:#0f0f10;text-decoration:none;font-weight:600;font-size:15px;padding:14px 32px;border-radius:999px;">Learn more</a>
+        </td></tr>
+        <tr><td style="background:#ececec;padding:28px 32px 24px;text-align:center;">
+          <p style="margin:0 0 14px;font-size:13px;font-weight:600;color:#1a1a1a;">Vaultio · Hiring infrastructure for early-stage teams</p>
+          <p style="margin:0;font-size:12px;color:#6b6b6b;line-height:1.5;">
+            <a href="https://vaultio.tech" style="color:#1a1a1a;text-decoration:none;">vaultio.tech</a> &nbsp;·&nbsp; Reply to this email and it reaches Emmanuel directly.
           </p>
+          <p style="margin:14px 0 0;font-size:11px;color:#9a9a9a;">© ${new Date().getFullYear()} Vaultio. All rights reserved.</p>
         </td></tr>
       </table>
     </td></tr>
   </table>
 </body></html>`;
+
     const res = await fetch("https://connector-gateway.lovable.dev/resend/emails", {
       method: "POST",
       headers: {
