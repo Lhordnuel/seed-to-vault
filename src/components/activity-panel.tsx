@@ -295,12 +295,25 @@ export function ActivityPanel({
           >
             Contacts ({leads.length})
           </button>
+          <button
+            type="button"
+            onClick={() => setTab("delivery")}
+            className={`flex-1 rounded px-2 py-1 transition ${
+              tab === "delivery"
+                ? "bg-background shadow-sm font-medium"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Delivery
+          </button>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">
         {tab === "contacts" ? (
           <ContactsSheet leads={leads} />
+        ) : tab === "delivery" ? (
+          <DeliverySheet />
         ) : (
           <>
             <Section
