@@ -564,8 +564,13 @@ export const Route = createFileRoute("/api/chat")({
           }),
         };
 
+        const model = withFallback(
+          gateway("google/gemini-3-flash-preview"),
+          getBedrockModel(),
+        );
+
         const result = streamText({
-          model: gateway("google/gemini-3-flash-preview"),
+          model,
           system: SYSTEM_PROMPT,
           messages: await convertToModelMessages(messages),
           tools,
