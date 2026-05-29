@@ -44,29 +44,39 @@ export function withFallback(
   fallback: LanguageModel | null,
 ): LanguageModel {
   if (!fallback) return primary;
-  return new Proxy(primary, {
+  // Use loose typing internally: V2 and V3 share the doGenerate/doStream shape
+  // that streamText invokes; the union type just complicates static checking.
+  const p = primary as unknown as { doGenerate: Function; doStream: Function };
+  const f = fallback as unknown as { doGenerate: Function; doStream: Function };
+  return new Proxy(primary as object, {
     get(target, prop, receiver) {
       if (prop === "doGenerate") {
-        return async (opts: Parameters<LanguageModel["doGenerate"]>[0]) => {
+        return async (opts: unknown) => {
           try {
-            return await target.doGenerate(opts);
+            return await p.doGenerate(opts);
           } catch (e) {
             if (isFallbackError(e)) {
-              console.warn("[ai-fallback] Lovable AI failed, retrying on Bedrock:", (e as Error).message);
-              return fallback.doGenerate(opts);
+              console.warn(
+                "[ai-fallback] Lovable AI failed, retrying on Bedrock:",
+                (e as Error).message,
+              );
+              return f.doGenerate(opts);
             }
             throw e;
           }
         };
       }
       if (prop === "doStream") {
-        return async (opts: Parameters<LanguageModel["doStream"]>[0]) => {
+        return async (opts: unknown) => {
           try {
-            return await target.doStream(opts);
+            return await p.doStream(opts);
           } catch (e) {
             if (isFallbackError(e)) {
-              console.warn("[ai-fallback] Lovable AI failed, retrying on Bedrock:", (e as Error).message);
-              return fallback.doStream(opts);
+              console.warn(
+                "[ai-fallback] Lovable AI failed, retrying on Bedrock:",
+                (e as Error).message,
+              );
+              return f.doStream(opts);
             }
             throw e;
           }
@@ -74,5 +84,5 @@ export function withFallback(
       }
       return Reflect.get(target, prop, receiver);
     },
-  });
+  }) as LanguageModel;
 }
