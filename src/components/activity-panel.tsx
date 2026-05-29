@@ -444,23 +444,165 @@ export function ActivityPanel({
 }
 
 function ContactsSheet({ leads }: { leads: Lead[] }) {
-  if (leads.length === 0) {
-    return (
-      <div className="px-4 py-6 text-xs text-muted-foreground">
-        No contacts yet. Once the bot extracts emails from company pages they'll
-        appear here automatically. Apollo + Hunter.io sources coming soon.
-      </div>
-    );
-  }
   return (
-    <div className="divide-y">
-      <div className="sticky top-0 grid grid-cols-[1fr_auto] items-center gap-2 bg-muted/40 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur">
-        <span>Name / Email / Company</span>
-        <span>Status</span>
+    <div>
+      <ImportLeads />
+      {leads.length === 0 ? (
+        <div className="px-4 py-6 text-xs text-muted-foreground">
+          No contacts yet. Import a CSV/list above, or let the bot extract
+          emails automatically.
+        </div>
+      ) : (
+        <div className="divide-y">
+          <div className="sticky top-0 grid grid-cols-[1fr_auto] items-center gap-2 bg-muted/40 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur">
+            <span>Name / Email / Company</span>
+            <span>Status</span>
+          </div>
+          {leads.map((l) => (
+            <ContactRow key={l.email} lead={l} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+
+function parseCsv(text: string): Record<string, string>[] {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+  if (lines.length === 0) return [];
+  const splitRow = (row: string) => {
+    const out: string[] = [];
+    let cur = "";
+    let inQ = false;
+    for (let i = 0; i < row.length; i++) {
+      const c = row[i];
+      if (c === '"') {
+        if (inQ && row[i + 1] === '"') {
+          cur += '"';
+          i++;
+        } else inQ = !inQ;
+      } else if (c === "," && !inQ) {
+        out.push(cur);
+        cur = "";
+      } else cur += c;
+    }
+    out.push(cur);
+    return out.map((s) => s.trim());
+  };
+  const header = splitRow(lines[0]).map((h) => h.toLowerCase().replace(/\s+/g, "_"));
+  const hasEmailHeader = header.some((h) => /email/.test(h));
+  if (!hasEmailHeader) {
+    // Treat as plain list — extract emails per line
+    return lines.flatMap((l) => {
+      const matches = l.match(EMAIL_RE) ?? [];
+      return matches.map((m) => ({ email: m }));
+    });
+  }
+  return lines.slice(1).map((row) => {
+    const cells = splitRow(row);
+    const rec: Record<string, string> = {};
+    header.forEach((h, i) => {
+      rec[h] = cells[i] ?? "";
+    });
+    return rec;
+  });
+}
+
+function pickField(r: Record<string, string>, keys: string[]) {
+  for (const k of keys) {
+    const v = r[k];
+    if (v && v.trim()) return v.trim();
+  }
+  return undefined;
+}
+
+function ImportLeads() {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const doImport = (raw: string) => {
+    const rows = parseCsv(raw);
+    let added = 0;
+    rows.forEach((r) => {
+      const email = pickField(r, ["email", "email_address", "e-mail"]);
+      if (!email || !EMAIL_RE.test(email)) return;
+      upsertLead({
+        email,
+        name: pickField(r, ["name", "full_name", "first_name", "contact"]),
+        role: pickField(r, ["role", "title", "position", "job_title"]),
+        companyName: pickField(r, ["company", "company_name", "organization", "org"]),
+        domain: pickField(r, ["domain", "website", "url"]),
+        source: pickField(r, ["source"]) ?? "import",
+      });
+      added++;
+    });
+    setMsg(added > 0 ? `Imported ${added} contact${added === 1 ? "" : "s"}` : "No valid emails found");
+    if (added > 0) {
+      setText("");
+      setTimeout(() => setOpen(false), 800);
+    }
+  };
+
+  const onFile = async (f: File) => {
+    const raw = await f.text();
+    doImport(raw);
+  };
+
+  return (
+    <div className="border-b bg-background px-3 py-2">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex items-center gap-1.5 rounded-md border bg-muted/30 px-2.5 py-1.5 text-xs font-medium hover:bg-muted"
+        >
+          <Upload className="h-3.5 w-3.5" />
+          Import CSV / list
+        </button>
+        <label className="cursor-pointer rounded-md border bg-muted/30 px-2.5 py-1.5 text-xs font-medium hover:bg-muted">
+          Choose file
+          <input
+            type="file"
+            accept=".csv,.txt,text/csv,text/plain"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) onFile(f);
+              e.target.value = "";
+            }}
+          />
+        </label>
       </div>
-      {leads.map((l) => (
-        <ContactRow key={l.email} lead={l} />
-      ))}
+      {open ? (
+        <div className="mt-2 flex flex-col gap-1.5">
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            rows={5}
+            placeholder={`Paste CSV with headers (email,name,company,role,domain)\nor one email per line`}
+            className="w-full rounded-md border bg-background p-2 text-xs font-mono"
+          />
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-muted-foreground">
+              Headers recognized: email, name, company, role/title, domain
+            </span>
+            <button
+              type="button"
+              onClick={() => doImport(text)}
+              disabled={!text.trim()}
+              className="rounded-md bg-primary px-3 py-1 text-xs font-medium text-primary-foreground disabled:opacity-50"
+            >
+              Import
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {msg ? (
+        <div className="mt-1.5 text-[11px] text-muted-foreground">{msg}</div>
+      ) : null}
     </div>
   );
 }
