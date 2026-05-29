@@ -618,6 +618,112 @@ export const Route = createFileRoute("/api/chat")({
               }
             },
           }),
+          ai_source_emails: tool({
+            description:
+              "Source executive emails using Claude Opus on AWS Bedrock as a reasoning step. Use ONLY when Apollo + Hunter have both failed. It scrapes team/about/contact pages and asks the model to extract any emails present and infer the most likely email pattern (e.g. first.last@domain). Returns extracted emails plus inferred-pattern guesses with confidence.",
+            inputSchema: z.object({
+              domain: z.string().describe("Company domain, e.g. acme.com"),
+              companyName: z.string().optional(),
+              targetRoles: z
+                .array(z.string())
+                .optional()
+                .describe("Roles to target, default CEO/Founder/CTO/COO/Head of People"),
+            }),
+            execute: async ({ domain, companyName, targetRoles }) => {
+              const opus = getBedrockOpusModel();
+              if (!opus) {
+                return {
+                  error:
+                    "Bedrock not configured (BEDROCK_API_KEY missing). Skip ai_source_emails and go straight to find_linkedin_profiles.",
+                };
+              }
+              const homepage = /^https?:\/\//i.test(domain)
+                ? domain
+                : `https://${domain.replace(/^\/+/, "")}`;
+              const rootDomain = new URL(homepage).hostname.replace(/^www\./, "");
+              const picked = new Set<string>([homepage]);
+              try {
+                const mapRes = await firecrawlMap(homepage, {
+                  search: "team about contact leadership founders people careers",
+                  limit: 30,
+                });
+                const links: string[] =
+                  mapRes?.links ?? mapRes?.data?.links ?? [];
+                const kw =
+                  /(team|about|contact|leadership|people|founders?|company|who-we-are|press)/i;
+                for (const l of links) {
+                  if (typeof l === "string" && kw.test(l)) {
+                    picked.add(l);
+                    if (picked.size >= 5) break;
+                  }
+                }
+              } catch {
+                /* homepage only */
+              }
+              const chunks: string[] = [];
+              for (const u of picked) {
+                try {
+                  const data = await firecrawlScrape(u);
+                  const md: string =
+                    data?.data?.markdown ?? data?.markdown ?? "";
+                  if (md) chunks.push(`--- ${u} ---\n${md.slice(0, 4000)}`);
+                } catch {
+                  /* skip */
+                }
+              }
+              const roles =
+                targetRoles?.length
+                  ? targetRoles
+                  : ["CEO", "Founder", "Co-Founder", "CTO", "COO", "Head of People"];
+              const prompt = `You are an email-sourcing assistant. Company: ${companyName ?? rootDomain} (${rootDomain}).
+Target roles: ${roles.join(", ")}.
+
+From the scraped pages below, do TWO things:
+1. EXTRACT every real email address you can find (only @${rootDomain} emails, ignore image filenames, noreply, sentry, wixpress, example.com).
+2. INFER the most-likely email pattern for this company (e.g. "first.last@${rootDomain}", "f.last@${rootDomain}", "first@${rootDomain}"). Pick ONE best pattern based on any visible emails.
+
+Then for each target role, if you spotted a real person name on the pages with that role, output the inferred email by applying the pattern. Mark each as "extracted" (literally found) or "inferred" (pattern-derived) with confidence 0-1.
+
+Return ONLY JSON (no prose, no fences) with shape:
+{ "pattern": "first.last@${rootDomain}" | null, "contacts": [{ "name"?, "role"?, "email", "source": "extracted" | "inferred", "confidence": number }] }
+
+SCRAPED PAGES:
+${chunks.join("\n\n").slice(0, 18000)}`;
+              try {
+                const { text } = await generateText({
+                  model: opus,
+                  prompt,
+                  maxOutputTokens: 1200,
+                });
+                let parsed: { pattern?: string | null; contacts?: unknown[] } = {};
+                try {
+                  const json = text.match(/\{[\s\S]*\}/)?.[0] ?? text;
+                  parsed = JSON.parse(json);
+                } catch {
+                  parsed = {};
+                }
+                return {
+                  companyName,
+                  domain: rootDomain,
+                  pagesScanned: [...picked],
+                  pattern: parsed.pattern ?? null,
+                  contacts: parsed.contacts ?? [],
+                  raw: parsed.contacts ? undefined : text.slice(0, 800),
+                  note:
+                    (parsed.contacts as unknown[] | undefined)?.length
+                      ? undefined
+                      : "Opus could not derive contacts. Fall back to find_linkedin_profiles.",
+                };
+              } catch (e) {
+                return {
+                  companyName,
+                  domain: rootDomain,
+                  error: (e as Error).message,
+                  contacts: [],
+                };
+              }
+            },
+          }),
           draft_pitch: tool({
             description:
               "Draft a personalized cold outreach pitch for Vaultio targeted at a specific company. Use after you have details about the company.",
