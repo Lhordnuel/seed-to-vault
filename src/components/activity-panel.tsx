@@ -183,7 +183,45 @@ function toolLabel(tool: string, input: any) {
   return tool;
 }
 
-type Tab = "activity" | "contacts";
+type Tab = "activity" | "contacts" | "delivery";
+
+type DeliveryEvent = {
+  email: string;
+  subject?: string;
+  resendId?: string;
+  latest: string;
+  latestAt: number;
+  history: { type: string; at: number; bounceReason?: string }[];
+};
+
+function useDeliveryEvents(active: boolean) {
+  const [events, setEvents] = useState<DeliveryEvent[]>([]);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (!active) return;
+    let cancelled = false;
+    const fetchOnce = async () => {
+      setLoading(true);
+      try {
+        const r = await fetch("/api/email-events");
+        if (!r.ok) return;
+        const data = (await r.json()) as { events: DeliveryEvent[] };
+        if (!cancelled) setEvents(data.events ?? []);
+      } catch {
+        /* ignore */
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    fetchOnce();
+    const id = setInterval(fetchOnce, 8000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [active]);
+  return { events, loading };
+}
 
 export function ActivityPanel({
   messages,
