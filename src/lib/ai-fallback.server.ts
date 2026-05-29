@@ -1,5 +1,5 @@
 import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
-import type { LanguageModelV2 } from "@ai-sdk/provider";
+import type { LanguageModel } from "ai";
 
 /**
  * AWS Bedrock fallback. Activates automatically when the Lovable AI Gateway
