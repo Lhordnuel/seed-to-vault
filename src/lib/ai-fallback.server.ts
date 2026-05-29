@@ -9,7 +9,7 @@ import type { LanguageModel } from "ai";
  * Default region: us-west-2. Default model: Claude 3.5 Haiku (cheap + fast).
  */
 const DEFAULT_REGION = "us-west-2";
-const DEFAULT_MODEL = "anthropic.claude-3-5-haiku-20241022-v1:0";
+const DEFAULT_MODEL = "us.anthropic.claude-haiku-4-5-20251001-v1:0";
 
 export function getBedrockModel(): LanguageModel | null {
   const apiKey = process.env.BEDROCK_API_KEY;
