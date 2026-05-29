@@ -8,6 +8,7 @@ import {
 } from "ai";
 import { z } from "zod";
 import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
+import { getBedrockModel, withFallback } from "@/lib/ai-fallback.server";
 import { firecrawlMap, firecrawlScrape, firecrawlSearch } from "@/lib/firecrawl.server";
 import {
   apolloSearchOrganizations,
@@ -563,8 +564,13 @@ export const Route = createFileRoute("/api/chat")({
           }),
         };
 
+        const model = withFallback(
+          gateway("google/gemini-3-flash-preview"),
+          getBedrockModel(),
+        );
+
         const result = streamText({
-          model: gateway("google/gemini-3-flash-preview"),
+          model,
           system: SYSTEM_PROMPT,
           messages: await convertToModelMessages(messages),
           tools,
