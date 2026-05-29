@@ -1,7 +1,8 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useEffect, useRef, useState } from "react";
-import { Menu, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { Menu, PanelRightClose, PanelRightOpen, Paperclip } from "lucide-react";
+import { upsertLead } from "@/lib/leads";
 import {
   Conversation,
   ConversationContent,
@@ -171,7 +172,11 @@ export function ChatWindow({ thread, onOpenSidebar }: { thread: Thread; onOpenSi
               placeholder="e.g. Find AI infra startups on YC hiring backend engineers"
               disabled={isLoading}
             />
-            <PromptInputFooter className="justify-end">
+            <PromptInputFooter className="justify-between">
+              <FileUploadButton
+                onImported={(summary) => sendMessage({ text: summary })}
+                disabled={isLoading}
+              />
               <PromptInputSubmit
                 status={status}
                 disabled={isLoading && status !== "streaming"}
@@ -231,6 +236,105 @@ function EmptyState({ onPick }: { onPick: (text: string) => void }) {
     </div>
   );
 }
+
+const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+
+function parseCsvRows(text: string): Record<string, string>[] {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+  if (!lines.length) return [];
+  const split = (row: string) => {
+    const out: string[] = [];
+    let cur = "";
+    let q = false;
+    for (let i = 0; i < row.length; i++) {
+      const c = row[i];
+      if (c === '"') {
+        if (q && row[i + 1] === '"') { cur += '"'; i++; } else q = !q;
+      } else if (c === "," && !q) { out.push(cur); cur = ""; }
+      else cur += c;
+    }
+    out.push(cur);
+    return out.map((s) => s.trim());
+  };
+  const header = split(lines[0]).map((h) => h.toLowerCase().replace(/\s+/g, "_"));
+  if (!header.some((h) => /email/.test(h))) {
+    return lines.flatMap((l) => (l.match(EMAIL_RE) ?? []).map((m) => ({ email: m })));
+  }
+  return lines.slice(1).map((row) => {
+    const cells = split(row);
+    const rec: Record<string, string> = {};
+    header.forEach((h, i) => { rec[h] = cells[i] ?? ""; });
+    return rec;
+  });
+}
+
+function pick(r: Record<string, string>, keys: string[]) {
+  for (const k of keys) { const v = r[k]; if (v && v.trim()) return v.trim(); }
+  return undefined;
+}
+
+function FileUploadButton({
+  onImported,
+  disabled,
+}: {
+  onImported: (summary: string) => void;
+  disabled?: boolean;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const handle = async (file: File) => {
+    const raw = await file.text();
+    const rows = parseCsvRows(raw);
+    const imported: { email: string; name?: string; company?: string }[] = [];
+    rows.forEach((r) => {
+      const email = pick(r, ["email", "email_address", "e-mail"]);
+      if (!email || !EMAIL_RE.test(email)) return;
+      const name = pick(r, ["name", "full_name", "contact"]);
+      const company = pick(r, ["company", "company_name", "organization", "org"]);
+      const role = pick(r, ["role", "title", "position", "job_title"]);
+      const domain = pick(r, ["domain", "website", "url"]);
+      upsertLead({ email, name, companyName: company, role, domain, source: "upload" });
+      imported.push({ email, name, company });
+    });
+    if (!imported.length) {
+      onImported(`I uploaded a file "${file.name}" but no valid emails were found.`);
+      return;
+    }
+    const preview = imported.slice(0, 20)
+      .map((l) => `- ${l.name ?? ""} <${l.email}>${l.company ? ` @ ${l.company}` : ""}`).join("\n");
+    const more = imported.length > 20 ? `\n…and ${imported.length - 20} more.` : "";
+    onImported(
+      `I uploaded "${file.name}" with ${imported.length} contact${imported.length === 1 ? "" : "s"}. Please research these companies and send personalized Vaultio pitches (skip any already contacted):\n\n${preview}${more}`,
+    );
+  };
+  return (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".csv,.txt,text/csv,text/plain"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) handle(f);
+          e.target.value = "";
+        }}
+      />
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        disabled={disabled}
+        onClick={() => inputRef.current?.click()}
+        aria-label="Upload CSV or list"
+        title="Upload CSV or list of contacts"
+      >
+        <Paperclip className="h-4 w-4" />
+      </Button>
+    </>
+  );
+}
+
+
 
 
 type ToolPartShape = {
