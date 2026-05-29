@@ -52,7 +52,7 @@ export function ThreadSidebar() {
       <div className="flex items-center gap-2 border-b px-4 py-3">
         <img src={logo} alt="" width={28} height={28} className="rounded" />
         <div className="flex-1">
-          <div className="text-sm font-semibold">Vaultio Scout</div>
+          <div className="text-sm font-semibold">Startup Scout</div>
           <div className="text-xs text-muted-foreground">Startup lead agent</div>
         </div>
       </div>

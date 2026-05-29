@@ -211,8 +211,8 @@ function EmptyState({ onPick }: { onPick: (text: string) => void }) {
   ];
   return (
     <div className="mx-auto flex max-w-xl flex-col items-center gap-4 py-12 text-center">
-      <img src={logo} alt="Vaultio Scout" width={72} height={72} className="rounded-lg" />
-      <h2 className="text-2xl font-semibold">Vaultio Scout</h2>
+      <img src={logo} alt="Startup Scout" width={72} height={72} className="rounded-lg" />
+      <h2 className="text-2xl font-semibold">Startup Scout</h2>
       <p className="text-muted-foreground">
         Find seed–Series A startups (1–50 people) that are hiring on Wellfound, F6S, YC Jobs, and LinkedIn — then draft personalized Vaultio pitches.
       </p>
