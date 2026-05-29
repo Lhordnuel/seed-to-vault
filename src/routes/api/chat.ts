@@ -556,6 +556,59 @@ export const Route = createFileRoute("/api/chat")({
               }
             },
           }),
+          hunter_domain_search: tool({
+            description:
+              "Hunter.io domain search. Returns all known emails for a company domain with role/seniority/department metadata. Great for finding HR/People/Talent contacts at 51–200 companies (filter department='hr') or executives (seniority='executive'). Use as a primary lead source alongside Apollo.",
+            inputSchema: z.object({
+              domain: z.string().describe("Company domain, e.g. 'acme.com'"),
+              limit: z.number().min(1).max(100).default(20),
+              seniority: z
+                .enum(["junior", "senior", "executive"])
+                .optional(),
+              department: z
+                .enum([
+                  "executive",
+                  "it",
+                  "finance",
+                  "management",
+                  "sales",
+                  "legal",
+                  "support",
+                  "hr",
+                  "marketing",
+                  "communication",
+                  "education",
+                  "design",
+                  "health",
+                  "operations",
+                ])
+                .optional(),
+              type: z.enum(["personal", "generic"]).optional(),
+            }),
+            execute: async (input) => {
+              try {
+                return await hunterDomainSearch(input);
+              } catch (e) {
+                return { domain: input.domain, error: (e as Error).message, emails: [] };
+              }
+            },
+          }),
+          hunter_email_finder: tool({
+            description:
+              "Hunter.io email finder. Given a person's first/last name and company domain, returns their most-likely email with a confidence score. Use when you already know a target person at a company.",
+            inputSchema: z.object({
+              domain: z.string(),
+              firstName: z.string(),
+              lastName: z.string(),
+            }),
+            execute: async (input) => {
+              try {
+                return await hunterEmailFinder(input);
+              } catch (e) {
+                return { ...input, error: (e as Error).message };
+              }
+            },
+          }),
           draft_pitch: tool({
             description:
               "Draft a personalized cold outreach pitch for Vaultio targeted at a specific company. Use after you have details about the company.",
