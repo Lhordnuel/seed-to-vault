@@ -11,7 +11,9 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ThreadIdRouteImport } from './routes/$threadId'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiEmailEventsRouteImport } from './routes/api/email-events'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as ApiPublicResendWebhookRouteImport } from './routes/api/public/resend-webhook'
 
 const ThreadIdRoute = ThreadIdRouteImport.update({
   id: '/$threadId',
@@ -23,9 +25,19 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiEmailEventsRoute = ApiEmailEventsRouteImport.update({
+  id: '/api/email-events',
+  path: '/api/email-events',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiChatRoute = ApiChatRouteImport.update({
   id: '/api/chat',
   path: '/api/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicResendWebhookRoute = ApiPublicResendWebhookRouteImport.update({
+  id: '/api/public/resend-webhook',
+  path: '/api/public/resend-webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -33,30 +45,54 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$threadId': typeof ThreadIdRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/email-events': typeof ApiEmailEventsRoute
+  '/api/public/resend-webhook': typeof ApiPublicResendWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$threadId': typeof ThreadIdRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/email-events': typeof ApiEmailEventsRoute
+  '/api/public/resend-webhook': typeof ApiPublicResendWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$threadId': typeof ThreadIdRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/email-events': typeof ApiEmailEventsRoute
+  '/api/public/resend-webhook': typeof ApiPublicResendWebhookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/$threadId' | '/api/chat'
+  fullPaths:
+    | '/'
+    | '/$threadId'
+    | '/api/chat'
+    | '/api/email-events'
+    | '/api/public/resend-webhook'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$threadId' | '/api/chat'
-  id: '__root__' | '/' | '/$threadId' | '/api/chat'
+  to:
+    | '/'
+    | '/$threadId'
+    | '/api/chat'
+    | '/api/email-events'
+    | '/api/public/resend-webhook'
+  id:
+    | '__root__'
+    | '/'
+    | '/$threadId'
+    | '/api/chat'
+    | '/api/email-events'
+    | '/api/public/resend-webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ThreadIdRoute: typeof ThreadIdRoute
   ApiChatRoute: typeof ApiChatRoute
+  ApiEmailEventsRoute: typeof ApiEmailEventsRoute
+  ApiPublicResendWebhookRoute: typeof ApiPublicResendWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -75,11 +111,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/email-events': {
+      id: '/api/email-events'
+      path: '/api/email-events'
+      fullPath: '/api/email-events'
+      preLoaderRoute: typeof ApiEmailEventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/chat': {
       id: '/api/chat'
       path: '/api/chat'
       fullPath: '/api/chat'
       preLoaderRoute: typeof ApiChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/resend-webhook': {
+      id: '/api/public/resend-webhook'
+      path: '/api/public/resend-webhook'
+      fullPath: '/api/public/resend-webhook'
+      preLoaderRoute: typeof ApiPublicResendWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -89,6 +139,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ThreadIdRoute: ThreadIdRoute,
   ApiChatRoute: ApiChatRoute,
+  ApiEmailEventsRoute: ApiEmailEventsRoute,
+  ApiPublicResendWebhookRoute: ApiPublicResendWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

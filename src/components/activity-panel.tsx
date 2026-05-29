@@ -183,7 +183,45 @@ function toolLabel(tool: string, input: any) {
   return tool;
 }
 
-type Tab = "activity" | "contacts";
+type Tab = "activity" | "contacts" | "delivery";
+
+type DeliveryEvent = {
+  email: string;
+  subject?: string;
+  resendId?: string;
+  latest: string;
+  latestAt: number;
+  history: { type: string; at: number; bounceReason?: string }[];
+};
+
+function useDeliveryEvents(active: boolean) {
+  const [events, setEvents] = useState<DeliveryEvent[]>([]);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (!active) return;
+    let cancelled = false;
+    const fetchOnce = async () => {
+      setLoading(true);
+      try {
+        const r = await fetch("/api/email-events");
+        if (!r.ok) return;
+        const data = (await r.json()) as { events: DeliveryEvent[] };
+        if (!cancelled) setEvents(data.events ?? []);
+      } catch {
+        /* ignore */
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    fetchOnce();
+    const id = setInterval(fetchOnce, 8000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [active]);
+  return { events, loading };
+}
 
 export function ActivityPanel({
   messages,
@@ -257,12 +295,25 @@ export function ActivityPanel({
           >
             Contacts ({leads.length})
           </button>
+          <button
+            type="button"
+            onClick={() => setTab("delivery")}
+            className={`flex-1 rounded px-2 py-1 transition ${
+              tab === "delivery"
+                ? "bg-background shadow-sm font-medium"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Delivery
+          </button>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">
         {tab === "contacts" ? (
           <ContactsSheet leads={leads} />
+        ) : tab === "delivery" ? (
+          <DeliverySheet />
         ) : (
           <>
             <Section
@@ -508,5 +559,68 @@ function Section({
 function Empty({ text }: { text: string }) {
   return (
     <div className="px-1 py-2 text-[11px] text-muted-foreground">{text}</div>
+  );
+}
+
+function statusBadge(t: string) {
+  if (t === "email.bounced" || t === "email.complained")
+    return "bg-destructive/15 text-destructive";
+  if (t === "email.opened" || t === "email.clicked")
+    return "bg-blue-500/15 text-blue-700 dark:text-blue-400";
+  if (t === "email.delivered")
+    return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400";
+  return "bg-muted text-muted-foreground";
+}
+
+function DeliverySheet() {
+  const { events, loading } = useDeliveryEvents(true);
+  return (
+    <div>
+      <div className="border-b bg-muted/30 px-3 py-2 text-[10px] text-muted-foreground">
+        Live from Resend webhooks. Add{" "}
+        <code className="rounded bg-muted px-1">/api/public/resend-webhook</code>{" "}
+        in your Resend dashboard. Events persist while the server is warm.
+      </div>
+      {events.length === 0 ? (
+        <div className="px-4 py-6 text-xs text-muted-foreground">
+          {loading
+            ? "Loading…"
+            : "No delivery events yet. Once Resend posts events here, you'll see sent / delivered / opened / bounced statuses."}
+        </div>
+      ) : (
+        <div className="divide-y">
+          {events.map((e, i) => (
+            <div
+              key={`${e.email}-${e.resendId ?? i}`}
+              className="px-3 py-2.5 text-xs"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate font-medium">{e.email}</span>
+                <span
+                  className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${statusBadge(
+                    e.latest,
+                  )}`}
+                >
+                  {e.latest.replace(/^email\./, "")}
+                </span>
+              </div>
+              {e.subject ? (
+                <div className="mt-0.5 truncate text-muted-foreground">
+                  {e.subject}
+                </div>
+              ) : null}
+              <div className="mt-1 flex flex-wrap gap-1 text-[10px] text-muted-foreground">
+                {e.history.map((h, j) => (
+                  <span key={j} className="rounded bg-muted px-1.5 py-0.5">
+                    {h.type.replace(/^email\./, "")} ·{" "}
+                    {new Date(h.at).toLocaleTimeString()}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

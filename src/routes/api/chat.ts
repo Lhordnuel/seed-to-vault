@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
   convertToModelMessages,
+  generateText,
   stepCountIs,
   streamText,
   tool,
@@ -8,7 +9,11 @@ import {
 } from "ai";
 import { z } from "zod";
 import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
-import { getBedrockModel, withFallback } from "@/lib/ai-fallback.server";
+import {
+  getBedrockModel,
+  getBedrockOpusModel,
+  withFallback,
+} from "@/lib/ai-fallback.server";
 import { firecrawlMap, firecrawlScrape, firecrawlSearch } from "@/lib/firecrawl.server";
 import {
   apolloSearchOrganizations,
@@ -24,7 +29,7 @@ const SOURCE_DOMAINS: Record<string, string> = {
   linkedin: "linkedin.com/jobs",
 };
 
-const SYSTEM_PROMPT = `You are Vaultio Scout, an AI sales-development agent for Emmanuel (Nuel) at Vaultio.
+const SYSTEM_PROMPT = `You are Startup Scout, an AI sales-development agent for Emmanuel (Nuel) at Vaultio.
 
 Your job: find startups that are ACTIVELY HIRING (seed–Series B, 1–200 employees), draft a size-appropriate pitch, and send it via email.
 
@@ -94,10 +99,14 @@ Template A examples: "[Name], 30 min to hire your next [Role]?" · "Saw the [Rol
 Template B examples: "[Company] hiring [Role] — cut time-to-hire 90%" · "[Name], one workflow for [Company]'s [Role] pipeline"
 
 How to work:
-1. Discovery: \`search_startups\` (Firecrawl across Wellfound/F6S/YC/LinkedIn) → \`scrape_company\` to confirm stage, size, role context.
-2. Contact lookup (in order, stop at first success): (a) \`apollo_find_contacts\` for verified emails — Template B prefers People/Talent/HR titles, Template A prefers CEO/Founder/CTO. (b) \`hunter_domain_search\` — for Template B pass department='hr', for Template A pass seniority='executive'. Use \`hunter_email_finder\` when you have a specific person's name + domain. (c) \`find_executive_contacts\` (Firecrawl scrape of team/about). (d) \`find_linkedin_profiles\` if no email exists anywhere.
+1. Discovery (PRIMARY = Firecrawl): \`search_startups\` across Wellfound/F6S/YC/LinkedIn → \`scrape_company\` to confirm stage, size, role context. Only fall back to \`apollo_search_startups\` if Firecrawl returns nothing useful.
+2. Contact lookup — STRICT ORDER, stop at first success that yields a usable email:
+   a. \`apollo_find_contacts\` (verified emails — Template B prefers People/Talent/HR titles, Template A prefers CEO/Founder/CTO).
+   b. \`hunter_domain_search\` if Apollo fails or returns no email — Template B pass department='hr', Template A pass seniority='executive'. Use \`hunter_email_finder\` when you have a specific name + domain.
+   c. \`ai_source_emails\` (Claude Opus on AWS Bedrock) if Hunter also fails — it scrapes the site and reasons about likely contact emails / patterns.
+   d. \`find_linkedin_profiles\` (Firecrawl LinkedIn search) ONLY as the final fallback when no email exists anywhere. Surface the LinkedIn URLs so Nuel can DM manually.
 3. Filter: seed–Series B, 1–200 people. Tag each lead [A] or [B].
-4. Present results as a numbered list: company, 1-line description, stage/size, [A/B], roles, contact, source URL.
+4. Present results as a numbered list: company, 1-line description, stage/size, [A/B], roles, contact (or LinkedIn fallback), source URL.
 5. \`draft_pitch\` using the correct template for that lead's bucket. Show draft + recipients for approval unless user said "send it".
 6. SINGLE → \`send_pitch\`. MULTIPLE → \`bulk_send_pitch\` ONCE (rate-limited, dedupes). Show summary.
 7. NEVER send without a recipient email. NEVER loop \`send_pitch\` for batches.
@@ -606,6 +615,112 @@ export const Route = createFileRoute("/api/chat")({
                 return await hunterEmailFinder(input);
               } catch (e) {
                 return { ...input, error: (e as Error).message };
+              }
+            },
+          }),
+          ai_source_emails: tool({
+            description:
+              "Source executive emails using Claude Opus on AWS Bedrock as a reasoning step. Use ONLY when Apollo + Hunter have both failed. It scrapes team/about/contact pages and asks the model to extract any emails present and infer the most likely email pattern (e.g. first.last@domain). Returns extracted emails plus inferred-pattern guesses with confidence.",
+            inputSchema: z.object({
+              domain: z.string().describe("Company domain, e.g. acme.com"),
+              companyName: z.string().optional(),
+              targetRoles: z
+                .array(z.string())
+                .optional()
+                .describe("Roles to target, default CEO/Founder/CTO/COO/Head of People"),
+            }),
+            execute: async ({ domain, companyName, targetRoles }) => {
+              const opus = getBedrockOpusModel();
+              if (!opus) {
+                return {
+                  error:
+                    "Bedrock not configured (BEDROCK_API_KEY missing). Skip ai_source_emails and go straight to find_linkedin_profiles.",
+                };
+              }
+              const homepage = /^https?:\/\//i.test(domain)
+                ? domain
+                : `https://${domain.replace(/^\/+/, "")}`;
+              const rootDomain = new URL(homepage).hostname.replace(/^www\./, "");
+              const picked = new Set<string>([homepage]);
+              try {
+                const mapRes = await firecrawlMap(homepage, {
+                  search: "team about contact leadership founders people careers",
+                  limit: 30,
+                });
+                const links: string[] =
+                  mapRes?.links ?? mapRes?.data?.links ?? [];
+                const kw =
+                  /(team|about|contact|leadership|people|founders?|company|who-we-are|press)/i;
+                for (const l of links) {
+                  if (typeof l === "string" && kw.test(l)) {
+                    picked.add(l);
+                    if (picked.size >= 5) break;
+                  }
+                }
+              } catch {
+                /* homepage only */
+              }
+              const chunks: string[] = [];
+              for (const u of picked) {
+                try {
+                  const data = await firecrawlScrape(u);
+                  const md: string =
+                    data?.data?.markdown ?? data?.markdown ?? "";
+                  if (md) chunks.push(`--- ${u} ---\n${md.slice(0, 4000)}`);
+                } catch {
+                  /* skip */
+                }
+              }
+              const roles =
+                targetRoles?.length
+                  ? targetRoles
+                  : ["CEO", "Founder", "Co-Founder", "CTO", "COO", "Head of People"];
+              const prompt = `You are an email-sourcing assistant. Company: ${companyName ?? rootDomain} (${rootDomain}).
+Target roles: ${roles.join(", ")}.
+
+From the scraped pages below, do TWO things:
+1. EXTRACT every real email address you can find (only @${rootDomain} emails, ignore image filenames, noreply, sentry, wixpress, example.com).
+2. INFER the most-likely email pattern for this company (e.g. "first.last@${rootDomain}", "f.last@${rootDomain}", "first@${rootDomain}"). Pick ONE best pattern based on any visible emails.
+
+Then for each target role, if you spotted a real person name on the pages with that role, output the inferred email by applying the pattern. Mark each as "extracted" (literally found) or "inferred" (pattern-derived) with confidence 0-1.
+
+Return ONLY JSON (no prose, no fences) with shape:
+{ "pattern": "first.last@${rootDomain}" | null, "contacts": [{ "name"?, "role"?, "email", "source": "extracted" | "inferred", "confidence": number }] }
+
+SCRAPED PAGES:
+${chunks.join("\n\n").slice(0, 18000)}`;
+              try {
+                const { text } = await generateText({
+                  model: opus,
+                  prompt,
+                  maxOutputTokens: 1200,
+                });
+                let parsed: { pattern?: string | null; contacts?: unknown[] } = {};
+                try {
+                  const json = text.match(/\{[\s\S]*\}/)?.[0] ?? text;
+                  parsed = JSON.parse(json);
+                } catch {
+                  parsed = {};
+                }
+                return {
+                  companyName,
+                  domain: rootDomain,
+                  pagesScanned: [...picked],
+                  pattern: parsed.pattern ?? null,
+                  contacts: parsed.contacts ?? [],
+                  raw: parsed.contacts ? undefined : text.slice(0, 800),
+                  note:
+                    (parsed.contacts as unknown[] | undefined)?.length
+                      ? undefined
+                      : "Opus could not derive contacts. Fall back to find_linkedin_profiles.",
+                };
+              } catch (e) {
+                return {
+                  companyName,
+                  domain: rootDomain,
+                  error: (e as Error).message,
+                  contacts: [],
+                };
               }
             },
           }),

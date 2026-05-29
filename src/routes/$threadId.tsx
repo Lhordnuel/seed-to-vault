@@ -7,7 +7,7 @@ import { getThread, type Thread } from "@/lib/threads";
 export const Route = createFileRoute("/$threadId")({
   head: () => ({
     meta: [
-      { title: "Vaultio Scout — Find startups to pitch" },
+      { title: "Startup Scout — Find startups to pitch" },
       {
         name: "description",
         content:
