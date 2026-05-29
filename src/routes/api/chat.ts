@@ -15,6 +15,7 @@ import {
   apolloFindExecutives,
   apolloEnrichPerson,
 } from "@/lib/apollo.server";
+import { hunterDomainSearch, hunterEmailFinder } from "@/lib/hunter.server";
 
 const SOURCE_DOMAINS: Record<string, string> = {
   wellfound: "wellfound.com",
