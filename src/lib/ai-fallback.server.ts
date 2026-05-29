@@ -10,15 +10,28 @@ import type { LanguageModel } from "ai";
  */
 const DEFAULT_REGION = "us-west-2";
 const DEFAULT_MODEL = "us.anthropic.claude-haiku-4-5-20251001-v1:0";
+const DEFAULT_OPUS_MODEL = "us.anthropic.claude-opus-4-20250514-v1:0";
 
-export function getBedrockModel(): LanguageModel | null {
+function bedrock() {
   const apiKey = process.env.BEDROCK_API_KEY;
   if (!apiKey) return null;
-  const bedrock = createAmazonBedrock({
+  return createAmazonBedrock({
     apiKey,
     region: process.env.BEDROCK_REGION || DEFAULT_REGION,
   });
-  return bedrock(process.env.BEDROCK_MODEL_ID || DEFAULT_MODEL);
+}
+
+export function getBedrockModel(): LanguageModel | null {
+  const b = bedrock();
+  if (!b) return null;
+  return b(process.env.BEDROCK_MODEL_ID || DEFAULT_MODEL);
+}
+
+/** Claude Opus on Bedrock — used for the email-sourcing reasoning tool. */
+export function getBedrockOpusModel(): LanguageModel | null {
+  const b = bedrock();
+  if (!b) return null;
+  return b(process.env.BEDROCK_OPUS_MODEL_ID || DEFAULT_OPUS_MODEL);
 }
 
 function isFallbackError(err: unknown): boolean {
