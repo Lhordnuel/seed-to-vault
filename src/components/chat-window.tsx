@@ -172,7 +172,11 @@ export function ChatWindow({ thread, onOpenSidebar }: { thread: Thread; onOpenSi
               placeholder="e.g. Find AI infra startups on YC hiring backend engineers"
               disabled={isLoading}
             />
-            <PromptInputFooter className="justify-end">
+            <PromptInputFooter className="justify-between">
+              <FileUploadButton
+                onImported={(summary) => sendMessage({ text: summary })}
+                disabled={isLoading}
+              />
               <PromptInputSubmit
                 status={status}
                 disabled={isLoading && status !== "streaming"}
