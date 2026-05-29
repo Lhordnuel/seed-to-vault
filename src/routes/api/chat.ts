@@ -75,7 +75,7 @@ Avoid spammy words (FREE, !!!, ALL CAPS).
 
 How to work:
 1. PRIMARY discovery: call \`search_startups\` (Firecrawl across Wellfound/F6S/YC/LinkedIn) to find startups actively hiring. Then \`scrape_company\` on the job/company page to confirm stage, size (1–50), and role context.
-2. PRIMARY contact lookup: once you have a company + domain, call \`apollo_find_contacts\` to pull verified CEO/Founder/CTO/COO emails from Apollo. If Apollo returns nothing, fall back to \`find_executive_contacts\` (Firecrawl scrape of team/about pages). Optionally use \`apollo_search_startups\` to enrich firmographics (employees, stage, industry).
+2. PRIMARY contact lookup: once you have a company + domain, call \`apollo_find_contacts\` to pull verified CEO/Founder/CTO/COO emails from Apollo. If Apollo returns nothing, fall back to \`find_executive_contacts\` (Firecrawl scrape of team/about pages). If BOTH return no email, call \`find_linkedin_profiles\` to source the executive's LinkedIn profile URL instead — present that LinkedIn URL to the user so they can reach out manually. Optionally use \`apollo_search_startups\` to enrich firmographics (employees, stage, industry).
 3. Filter ruthlessly: seed–Series A, 1–50 people.
 4. Present results as a numbered list: company, what they do (1 line), stage/size, roles, contact, source URL.
 5. Call \`draft_pitch\` to fill the template with [Name], [Role], [Platform] specific to that company. Show draft + recipient(s) for approval unless the user said "send it".
@@ -451,9 +451,65 @@ export const Route = createFileRoute("/api/chat")({
                 primaryContact: ranked.find((c) => c.role) ?? ranked[0],
                 note:
                   ranked.length === 0
-                    ? "No executive emails found on public pages. Consider asking the user or using a generic alias (e.g. founders@domain) only if appropriate."
+                    ? "No executive emails found on public pages. Call find_linkedin_profiles next to source a LinkedIn URL for the CEO/Founder/CTO instead."
                     : undefined,
               };
+            },
+          }),
+          find_linkedin_profiles: tool({
+            description:
+              "Fallback when no executive email can be found. Uses Firecrawl web search to locate LinkedIn profile URLs for a company's CEO, Founder, CTO or COO. Returns LinkedIn profile links the user can open and message directly.",
+            inputSchema: z.object({
+              companyName: z.string().describe("Exact company name"),
+              domain: z.string().optional().describe("Company domain, helps disambiguate"),
+              roles: z
+                .array(z.string())
+                .optional()
+                .describe("Roles to target. Defaults to CEO, Founder, CTO, COO."),
+              limit: z.number().min(1).max(15).default(8),
+            }),
+            execute: async ({ companyName, domain, roles, limit }) => {
+              const targetRoles = roles?.length
+                ? roles
+                : ["CEO", "Founder", "Co-Founder", "CTO", "COO"];
+              const rolesClause = targetRoles
+                .map((r) => `"${r}"`)
+                .join(" OR ");
+              const query = `site:linkedin.com/in (${rolesClause}) "${companyName}"${domain ? ` ${domain}` : ""}`;
+              try {
+                const data = await firecrawlSearch(query, limit);
+                const web: SearchHit[] =
+                  (data?.data?.web as SearchHit[]) ??
+                  (data?.web as SearchHit[]) ??
+                  (data?.data as SearchHit[]) ??
+                  [];
+                const profiles = web
+                  .filter((r) => r.url?.includes("linkedin.com/in/"))
+                  .slice(0, limit)
+                  .map((r) => {
+                    const title = r.title ?? "";
+                    // Title often "Name - Role - Company | LinkedIn"
+                    const [namePart, rolePart] = title.split(/\s[-–|]\s/);
+                    return {
+                      name: namePart?.trim(),
+                      headline: rolePart?.trim(),
+                      url: r.url,
+                      snippet: r.description,
+                    };
+                  });
+                return {
+                  companyName,
+                  query,
+                  count: profiles.length,
+                  profiles,
+                  note:
+                    profiles.length === 0
+                      ? "No LinkedIn profiles found via search. Tell the user no contact path was found."
+                      : "Share these LinkedIn URLs with the user as the manual outreach path since no email was discovered.",
+                };
+              } catch (e) {
+                return { companyName, error: (e as Error).message, profiles: [] };
+              }
             },
           }),
           draft_pitch: tool({
