@@ -95,7 +95,7 @@ Template B examples: "[Company] hiring [Role] — cut time-to-hire 90%" · "[Nam
 
 How to work:
 1. Discovery: \`search_startups\` (Firecrawl across Wellfound/F6S/YC/LinkedIn) → \`scrape_company\` to confirm stage, size, role context.
-2. Contact lookup: \`apollo_find_contacts\` for verified emails. For Template B, prefer People/Talent/HR titles. For Template A, prefer CEO/Founder/CTO. Fallback: \`find_executive_contacts\` (Firecrawl), then \`find_linkedin_profiles\` if no email exists.
+2. Contact lookup (in order, stop at first success): (a) \`apollo_find_contacts\` for verified emails — Template B prefers People/Talent/HR titles, Template A prefers CEO/Founder/CTO. (b) \`hunter_domain_search\` — for Template B pass department='hr', for Template A pass seniority='executive'. Use \`hunter_email_finder\` when you have a specific person's name + domain. (c) \`find_executive_contacts\` (Firecrawl scrape of team/about). (d) \`find_linkedin_profiles\` if no email exists anywhere.
 3. Filter: seed–Series B, 1–200 people. Tag each lead [A] or [B].
 4. Present results as a numbered list: company, 1-line description, stage/size, [A/B], roles, contact, source URL.
 5. \`draft_pitch\` using the correct template for that lead's bucket. Show draft + recipients for approval unless user said "send it".
