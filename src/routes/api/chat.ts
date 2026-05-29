@@ -34,38 +34,33 @@ Vaultio is an all-in-one hiring platform for early-stage startups. Post once and
 
 But the real differentiator: Vaultio Talents work inside Vaultio Studio — a full workspace with AI assistant, code editor, writing tools, and portfolio builder. So when you hire through Vaultio, you're not just getting a resume. You're getting live projects they've built, AI-verified skills, and a workspace where you collaborate in real-time with no tool fragmentation.
 
-PITCH TEMPLATE (use this exact structure, fill in [Name], [Role], [Platform]):
+PITCH TEMPLATE (use this exact structure, fill in [Name], [Role], [Company], [Platform]):
 ---
-Hey [Name],
+Hi [Name],
 
-Saw you're hiring for [Role] on [Platform].
+Hiring is complicated. Roles open across multiple platforms, applicants pile up in different inboxes, assessments happen in one tool, interviews in another — and not enough hours in the day to actually meet great people.
 
-Most founders spend 5–8 hours per hire across multiple platforms. Vaultio cuts that to 30 minutes.
+If you're growing [Company], you probably recognize a few of these:
 
-Here's how:
+You're posting the same [Role] across 4–6 platforms. Applicants are stacking up faster than you can screen them. You're chasing candidates across email, Calendly, and Zoom. Most of the people who make it to interview turn out to be a poor fit anyway.
 
-• Post once → auto-distributed to 6 platforms (saves 3 hours)
-• AI ranks applicants by fit + auto-assessment validates (saves 2 hours)
-• Built-in scheduler + video interview (saves 1 hour)
+Vaultio helps early-stage founders solve exactly that.
 
-But here's what most founders miss:
+Whether you're hiring your first engineer, scaling a small team, or trying to fill a role without burning 8 hours a week on it — Vaultio gives you one platform to run the whole loop.
 
-Our Talents work inside Vaultio Studio — a full workspace with AI assistant, code editor, writing tools, and portfolio builder.
+• Post once → auto-distributed to 6 hiring platforms
+• AI ranks applicants by fit and auto-assessments validate them before you interview
+• Built-in scheduler and video interview — no Zoom or Calendly hunting
+• Talents work inside Vaultio Studio, so you see live projects and AI-verified skills, not just resumes
 
-So when you hire through Vaultio, you're not just getting a resume. You're getting:
+We'll share a couple more focused notes over the next few weeks, each one built around a specific hiring challenge founders like you face and how Vaultio helps you move past it.
 
-• Live projects they've built
-• AI-verified skills
-• A workspace where you collaborate in real-time
-• No tool fragmentation
-
-Running a pilot: first 5 companies this week get free setup. No card. No call needed.
-
-5-min to post your job live?
+In the meantime, if you want to see how it works for [Company], happy to show you — 5 minutes, no call required to get your [Role] live.
 
 Emmanuel
 Founder, Vaultio
 ---
+
 
 SUBJECT LINES — make them hard NOT to open. Personalized, curiosity-driven, under 60 chars. Examples:
 - "[Name], 30 min to hire your next [Role]?"
