@@ -512,8 +512,6 @@ export const Route = createFileRoute("/api/chat")({
               }
             },
           }),
-            },
-          }),
           draft_pitch: tool({
             description:
               "Draft a personalized cold outreach pitch for Vaultio targeted at a specific company. Use after you have details about the company.",
