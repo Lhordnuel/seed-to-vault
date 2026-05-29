@@ -75,7 +75,7 @@ Avoid spammy words (FREE, !!!, ALL CAPS).
 
 How to work:
 1. PRIMARY discovery: call \`search_startups\` (Firecrawl across Wellfound/F6S/YC/LinkedIn) to find startups actively hiring. Then \`scrape_company\` on the job/company page to confirm stage, size (1–50), and role context.
-2. PRIMARY contact lookup: once you have a company + domain, call \`apollo_find_contacts\` to pull verified CEO/Founder/CTO/COO emails from Apollo. If Apollo returns nothing, fall back to \`find_executive_contacts\` (Firecrawl scrape of team/about pages). Optionally use \`apollo_search_startups\` to enrich firmographics (employees, stage, industry).
+2. PRIMARY contact lookup: once you have a company + domain, call \`apollo_find_contacts\` to pull verified CEO/Founder/CTO/COO emails from Apollo. If Apollo returns nothing, fall back to \`find_executive_contacts\` (Firecrawl scrape of team/about pages). If BOTH return no email, call \`find_linkedin_profiles\` to source the executive's LinkedIn profile URL instead — present that LinkedIn URL to the user so they can reach out manually. Optionally use \`apollo_search_startups\` to enrich firmographics (employees, stage, industry).
 3. Filter ruthlessly: seed–Series A, 1–50 people.
 4. Present results as a numbered list: company, what they do (1 line), stage/size, roles, contact, source URL.
 5. Call \`draft_pitch\` to fill the template with [Name], [Role], [Platform] specific to that company. Show draft + recipient(s) for approval unless the user said "send it".
