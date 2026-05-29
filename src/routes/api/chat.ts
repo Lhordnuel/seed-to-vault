@@ -8,6 +8,7 @@ import {
 } from "ai";
 import { z } from "zod";
 import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
+import { getBedrockModel, withFallback } from "@/lib/ai-fallback.server";
 import { firecrawlMap, firecrawlScrape, firecrawlSearch } from "@/lib/firecrawl.server";
 import {
   apolloSearchOrganizations,
