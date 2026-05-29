@@ -561,3 +561,66 @@ function Empty({ text }: { text: string }) {
     <div className="px-1 py-2 text-[11px] text-muted-foreground">{text}</div>
   );
 }
+
+function statusBadge(t: string) {
+  if (t === "email.bounced" || t === "email.complained")
+    return "bg-destructive/15 text-destructive";
+  if (t === "email.opened" || t === "email.clicked")
+    return "bg-blue-500/15 text-blue-700 dark:text-blue-400";
+  if (t === "email.delivered")
+    return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400";
+  return "bg-muted text-muted-foreground";
+}
+
+function DeliverySheet() {
+  const { events, loading } = useDeliveryEvents(true);
+  return (
+    <div>
+      <div className="border-b bg-muted/30 px-3 py-2 text-[10px] text-muted-foreground">
+        Live from Resend webhooks. Add{" "}
+        <code className="rounded bg-muted px-1">/api/public/resend-webhook</code>{" "}
+        in your Resend dashboard. Events persist while the server is warm.
+      </div>
+      {events.length === 0 ? (
+        <div className="px-4 py-6 text-xs text-muted-foreground">
+          {loading
+            ? "Loading…"
+            : "No delivery events yet. Once Resend posts events here, you'll see sent / delivered / opened / bounced statuses."}
+        </div>
+      ) : (
+        <div className="divide-y">
+          {events.map((e, i) => (
+            <div
+              key={`${e.email}-${e.resendId ?? i}`}
+              className="px-3 py-2.5 text-xs"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate font-medium">{e.email}</span>
+                <span
+                  className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${statusBadge(
+                    e.latest,
+                  )}`}
+                >
+                  {e.latest.replace(/^email\./, "")}
+                </span>
+              </div>
+              {e.subject ? (
+                <div className="mt-0.5 truncate text-muted-foreground">
+                  {e.subject}
+                </div>
+              ) : null}
+              <div className="mt-1 flex flex-wrap gap-1 text-[10px] text-muted-foreground">
+                {e.history.map((h, j) => (
+                  <span key={j} className="rounded bg-muted px-1.5 py-0.5">
+                    {h.type.replace(/^email\./, "")} ·{" "}
+                    {new Date(h.at).toLocaleTimeString()}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
