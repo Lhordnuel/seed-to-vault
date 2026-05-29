@@ -11,7 +11,7 @@ import type { LanguageModel } from "ai";
 const DEFAULT_REGION = "us-west-2";
 const DEFAULT_MODEL = "anthropic.claude-3-5-haiku-20241022-v1:0";
 
-export function getBedrockModel(): LanguageModelV2 | null {
+export function getBedrockModel(): LanguageModel | null {
   const apiKey = process.env.BEDROCK_API_KEY;
   if (!apiKey) return null;
   const bedrock = createAmazonBedrock({
@@ -40,14 +40,14 @@ function isFallbackError(err: unknown): boolean {
  * thrown synchronously (before the stream starts), retries with `fallback`.
  */
 export function withFallback(
-  primary: LanguageModelV2,
-  fallback: LanguageModelV2 | null,
-): LanguageModelV2 {
+  primary: LanguageModel,
+  fallback: LanguageModel | null,
+): LanguageModel {
   if (!fallback) return primary;
   return new Proxy(primary, {
     get(target, prop, receiver) {
       if (prop === "doGenerate") {
-        return async (opts: Parameters<LanguageModelV2["doGenerate"]>[0]) => {
+        return async (opts: Parameters<LanguageModel["doGenerate"]>[0]) => {
           try {
             return await target.doGenerate(opts);
           } catch (e) {
@@ -60,7 +60,7 @@ export function withFallback(
         };
       }
       if (prop === "doStream") {
-        return async (opts: Parameters<LanguageModelV2["doStream"]>[0]) => {
+        return async (opts: Parameters<LanguageModel["doStream"]>[0]) => {
           try {
             return await target.doStream(opts);
           } catch (e) {
