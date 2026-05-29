@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ThreadIdRouteImport } from './routes/$threadId'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiEmailEventsRouteImport } from './routes/api/email-events'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiPublicResendWebhookRouteImport } from './routes/api/public/resend-webhook'
 
@@ -22,6 +23,11 @@ const ThreadIdRoute = ThreadIdRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiEmailEventsRoute = ApiEmailEventsRouteImport.update({
+  id: '/api/email-events',
+  path: '/api/email-events',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiChatRoute = ApiChatRouteImport.update({
@@ -39,12 +45,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$threadId': typeof ThreadIdRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/email-events': typeof ApiEmailEventsRoute
   '/api/public/resend-webhook': typeof ApiPublicResendWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$threadId': typeof ThreadIdRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/email-events': typeof ApiEmailEventsRoute
   '/api/public/resend-webhook': typeof ApiPublicResendWebhookRoute
 }
 export interface FileRoutesById {
@@ -52,18 +60,30 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/$threadId': typeof ThreadIdRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/email-events': typeof ApiEmailEventsRoute
   '/api/public/resend-webhook': typeof ApiPublicResendWebhookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/$threadId' | '/api/chat' | '/api/public/resend-webhook'
+  fullPaths:
+    | '/'
+    | '/$threadId'
+    | '/api/chat'
+    | '/api/email-events'
+    | '/api/public/resend-webhook'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$threadId' | '/api/chat' | '/api/public/resend-webhook'
+  to:
+    | '/'
+    | '/$threadId'
+    | '/api/chat'
+    | '/api/email-events'
+    | '/api/public/resend-webhook'
   id:
     | '__root__'
     | '/'
     | '/$threadId'
     | '/api/chat'
+    | '/api/email-events'
     | '/api/public/resend-webhook'
   fileRoutesById: FileRoutesById
 }
@@ -71,6 +91,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ThreadIdRoute: typeof ThreadIdRoute
   ApiChatRoute: typeof ApiChatRoute
+  ApiEmailEventsRoute: typeof ApiEmailEventsRoute
   ApiPublicResendWebhookRoute: typeof ApiPublicResendWebhookRoute
 }
 
@@ -88,6 +109,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/email-events': {
+      id: '/api/email-events'
+      path: '/api/email-events'
+      fullPath: '/api/email-events'
+      preLoaderRoute: typeof ApiEmailEventsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/chat': {
@@ -111,6 +139,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ThreadIdRoute: ThreadIdRoute,
   ApiChatRoute: ApiChatRoute,
+  ApiEmailEventsRoute: ApiEmailEventsRoute,
   ApiPublicResendWebhookRoute: ApiPublicResendWebhookRoute,
 }
 export const routeTree = rootRouteImport
