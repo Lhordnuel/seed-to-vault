@@ -127,11 +127,33 @@ function syncLeadsFromActivity(items: ActivityItem[]) {
     }
     if (a.tool === "send_pitch" && a.output?.sent && a.input?.to) {
       markContacted(a.input.to as string, a.input.subject as string | undefined);
+      if (a.output.resendId) {
+        recordSentEmails([
+          {
+            resendId: a.output.resendId,
+            to: a.input.to,
+            subject: a.input.subject,
+            companyName: a.input.companyName ?? a.output.companyName,
+            sentAt: Date.now(),
+          },
+        ]);
+      }
     }
     if (a.tool === "bulk_send_pitch" && Array.isArray(a.output?.sent)) {
+      const batch: SentEmail[] = [];
       (a.output.sent as any[]).forEach((s) => {
         if (s?.to) markContacted(s.to as string, s.subject as string | undefined);
+        if (s?.resendId && s?.to) {
+          batch.push({
+            resendId: s.resendId,
+            to: s.to,
+            subject: s.subject,
+            companyName: s.companyName,
+            sentAt: Date.now(),
+          });
+        }
       });
+      recordSentEmails(batch);
     }
     if (a.tool === "apollo_find_contacts" && Array.isArray(a.output?.contacts)) {
       const companyName: string | undefined =
