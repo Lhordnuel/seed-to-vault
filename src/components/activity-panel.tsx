@@ -23,6 +23,12 @@ import {
   useLeadsSubscription,
   type Lead,
 } from "@/lib/leads";
+import {
+  loadSentEmails,
+  recordSentEmails,
+  subscribeSentEmails,
+  type SentEmail,
+} from "@/lib/sent-emails";
 
 type ToolPart = {
   type: string;
