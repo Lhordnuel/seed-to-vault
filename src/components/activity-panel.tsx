@@ -743,53 +743,135 @@ function statusBadge(t: string) {
   return "bg-muted text-muted-foreground";
 }
 
+type ResendStatus = {
+  id: string;
+  to?: string;
+  subject?: string;
+  last_event?: string;
+  created_at?: string;
+  error?: string;
+};
+
+function useResendStatuses(sent: SentEmail[]) {
+  const [statuses, setStatuses] = useState<Record<string, ResendStatus>>({});
+  const [loading, setLoading] = useState(false);
+  const ids = useMemo(() => sent.map((s) => s.resendId).filter(Boolean), [sent]);
+  const key = ids.join(",");
+  useEffect(() => {
+    if (!ids.length) {
+      setStatuses({});
+      return;
+    }
+    let cancelled = false;
+    const run = async () => {
+      setLoading(true);
+      try {
+        const r = await fetch("/api/email-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids }),
+        });
+        if (!r.ok) return;
+        const data = (await r.json()) as { statuses: ResendStatus[] };
+        if (cancelled) return;
+        const map: Record<string, ResendStatus> = {};
+        (data.statuses ?? []).forEach((s) => {
+          map[s.id] = s;
+        });
+        setStatuses(map);
+      } catch {
+        /* ignore */
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    run();
+    const id = setInterval(run, 15000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  return { statuses, loading };
+}
+
 function DeliverySheet() {
-  const { events, loading } = useDeliveryEvents(true);
+  const { events } = useDeliveryEvents(true);
+  const [sent, setSent] = useState<SentEmail[]>(() => loadSentEmails());
+  useEffect(() => {
+    const refresh = () => setSent(loadSentEmails());
+    refresh();
+    return subscribeSentEmails(refresh);
+  }, []);
+  const { statuses, loading } = useResendStatuses(sent);
+
+  // Webhook events keyed by resendId for quick lookup
+  const webhookById = useMemo(() => {
+    const m = new Map<string, DeliveryEvent>();
+    events.forEach((e) => {
+      if (e.resendId) m.set(e.resendId, e);
+    });
+    return m;
+  }, [events]);
+
   return (
     <div>
       <div className="border-b bg-muted/30 px-3 py-2 text-[10px] text-muted-foreground">
-        Live from Resend webhooks. Add{" "}
-        <code className="rounded bg-muted px-1">/api/public/resend-webhook</code>{" "}
-        in your Resend dashboard. Events persist while the server is warm.
+        Status polled from Resend every 15s. Webhook events
+        (<code className="rounded bg-muted px-1">/api/public/resend-webhook</code>)
+        layer in real-time opens/bounces when configured.
       </div>
-      {events.length === 0 ? (
+      {sent.length === 0 ? (
         <div className="px-4 py-6 text-xs text-muted-foreground">
           {loading
             ? "Loading…"
-            : "No delivery events yet. Once Resend posts events here, you'll see sent / delivered / opened / bounced statuses."}
+            : "No sent emails tracked yet. Send a pitch and it will appear here with delivery status."}
         </div>
       ) : (
         <div className="divide-y">
-          {events.map((e, i) => (
-            <div
-              key={`${e.email}-${e.resendId ?? i}`}
-              className="px-3 py-2.5 text-xs"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="truncate font-medium">{e.email}</span>
-                <span
-                  className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${statusBadge(
-                    e.latest,
-                  )}`}
-                >
-                  {e.latest.replace(/^email\./, "")}
-                </span>
-              </div>
-              {e.subject ? (
-                <div className="mt-0.5 truncate text-muted-foreground">
-                  {e.subject}
-                </div>
-              ) : null}
-              <div className="mt-1 flex flex-wrap gap-1 text-[10px] text-muted-foreground">
-                {e.history.map((h, j) => (
-                  <span key={j} className="rounded bg-muted px-1.5 py-0.5">
-                    {h.type.replace(/^email\./, "")} ·{" "}
-                    {new Date(h.at).toLocaleTimeString()}
+          {sent.map((s) => {
+            const wh = webhookById.get(s.resendId);
+            const st = statuses[s.resendId];
+            const latest =
+              wh?.latest ??
+              (st?.last_event ? `email.${st.last_event}` : "email.sent");
+            return (
+              <div key={s.resendId} className="px-3 py-2.5 text-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate font-medium">{s.to}</span>
+                  <span
+                    className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${statusBadge(
+                      latest,
+                    )}`}
+                  >
+                    {latest.replace(/^email\./, "")}
                   </span>
-                ))}
+                </div>
+                {s.subject ? (
+                  <div className="mt-0.5 truncate text-muted-foreground">
+                    {s.subject}
+                  </div>
+                ) : null}
+                <div className="mt-1 flex flex-wrap gap-1 text-[10px] text-muted-foreground">
+                  <span className="rounded bg-muted px-1.5 py-0.5">
+                    sent · {new Date(s.sentAt).toLocaleTimeString()}
+                  </span>
+                  {wh?.history?.map((h, j) => (
+                    <span key={j} className="rounded bg-muted px-1.5 py-0.5">
+                      {h.type.replace(/^email\./, "")} ·{" "}
+                      {new Date(h.at).toLocaleTimeString()}
+                    </span>
+                  ))}
+                  {st?.error ? (
+                    <span className="rounded bg-destructive/15 px-1.5 py-0.5 text-destructive">
+                      resend: {st.error}
+                    </span>
+                  ) : null}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
