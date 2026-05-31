@@ -624,6 +624,87 @@ export const Route = createFileRoute("/api/chat")({
               }
             },
           }),
+          prospeo_email_finder: tool({
+            description:
+              "Prospeo email finder. Given first/last name + company domain (or company name), returns verified work email. Use after Hunter fails.",
+            inputSchema: z.object({
+              firstName: z.string(),
+              lastName: z.string(),
+              domain: z.string().optional(),
+              company: z.string().optional(),
+            }),
+            execute: async (input) => {
+              try { return await prospeoEmailFinder(input); }
+              catch (e) { return { ...input, error: (e as Error).message }; }
+            },
+          }),
+          prospeo_domain_search: tool({
+            description: "Prospeo domain search — list emails associated with a company domain.",
+            inputSchema: z.object({
+              domain: z.string(),
+              limit: z.number().min(1).max(100).default(20),
+            }),
+            execute: async (input) => {
+              try { return await prospeoDomainSearch(input); }
+              catch (e) { return { domain: input.domain, error: (e as Error).message, emails: [] }; }
+            },
+          }),
+          pdl_person_enrich: tool({
+            description:
+              "People Data Labs person enrichment. Best when you have a name + company domain OR a LinkedIn profile URL. Returns verified work email, title, LinkedIn. Use after Prospeo fails.",
+            inputSchema: z.object({
+              firstName: z.string().optional(),
+              lastName: z.string().optional(),
+              fullName: z.string().optional(),
+              domain: z.string().optional(),
+              company: z.string().optional(),
+              profile: z.string().optional().describe("LinkedIn profile URL if known"),
+              minLikelihood: z.number().min(1).max(10).optional(),
+            }),
+            execute: async (input) => {
+              try { return await pdlPersonEnrich(input); }
+              catch (e) { return { ...input, error: (e as Error).message }; }
+            },
+          }),
+          pdl_person_search: tool({
+            description:
+              "People Data Labs person search — find executives/HR at a company by domain + titles.",
+            inputSchema: z.object({
+              domain: z.string(),
+              titles: z.array(z.string()).optional(),
+              size: z.number().min(1).max(100).optional(),
+            }),
+            execute: async (input) => {
+              try { return await pdlPersonSearch(input); }
+              catch (e) { return { domain: input.domain, error: (e as Error).message, people: [] }; }
+            },
+          }),
+          tomba_domain_search: tool({
+            description:
+              "Tomba.io domain search. Returns emails for a company domain, with department/seniority filters. Use after PDL fails.",
+            inputSchema: z.object({
+              domain: z.string(),
+              limit: z.number().min(1).max(100).default(20),
+              department: z.string().optional(),
+              seniority: z.string().optional(),
+            }),
+            execute: async (input) => {
+              try { return await tombaDomainSearch(input); }
+              catch (e) { return { domain: input.domain, error: (e as Error).message, emails: [] }; }
+            },
+          }),
+          tomba_email_finder: tool({
+            description: "Tomba.io email finder — first/last name + domain → email.",
+            inputSchema: z.object({
+              domain: z.string(),
+              firstName: z.string(),
+              lastName: z.string(),
+            }),
+            execute: async (input) => {
+              try { return await tombaEmailFinder(input); }
+              catch (e) { return { ...input, error: (e as Error).message }; }
+            },
+          }),
           ai_source_emails: tool({
             description:
               "Source executive emails using Claude Opus on AWS Bedrock as a reasoning step. Use ONLY when Apollo + Hunter have both failed. It scrapes team/about/contact pages and asks the model to extract any emails present and infer the most likely email pattern (e.g. first.last@domain). Returns extracted emails plus inferred-pattern guesses with confidence.",
