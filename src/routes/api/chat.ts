@@ -21,6 +21,9 @@ import {
   apolloEnrichPerson,
 } from "@/lib/apollo.server";
 import { hunterDomainSearch, hunterEmailFinder } from "@/lib/hunter.server";
+import { prospeoDomainSearch, prospeoEmailFinder } from "@/lib/prospeo.server";
+import { pdlPersonEnrich, pdlPersonSearch } from "@/lib/pdl.server";
+import { tombaDomainSearch, tombaEmailFinder } from "@/lib/tomba.server";
 
 const SOURCE_DOMAINS: Record<string, string> = {
   wellfound: "wellfound.com",
@@ -103,8 +106,11 @@ How to work:
 2. Contact lookup — STRICT ORDER, stop at first success that yields a usable email:
    a. \`apollo_find_contacts\` (verified emails — Template B prefers People/Talent/HR titles, Template A prefers CEO/Founder/CTO).
    b. \`hunter_domain_search\` if Apollo fails or returns no email — Template B pass department='hr', Template A pass seniority='executive'. Use \`hunter_email_finder\` when you have a specific name + domain.
-   c. \`ai_source_emails\` (Claude Opus on AWS Bedrock) if Hunter also fails — it scrapes the site and reasons about likely contact emails / patterns.
-   d. \`find_linkedin_profiles\` (Firecrawl LinkedIn search) ONLY as the final fallback when no email exists anywhere. Surface the LinkedIn URLs so Nuel can DM manually.
+   c. \`prospeo_email_finder\` / \`prospeo_domain_search\` if Hunter fails.
+   d. \`pdl_person_enrich\` / \`pdl_person_search\` (People Data Labs) if Prospeo fails — best when you have a name or LinkedIn URL.
+   e. \`tomba_domain_search\` / \`tomba_email_finder\` if PDL fails.
+   f. \`ai_source_emails\` (Claude Opus on AWS Bedrock) if every provider above failed — scrapes site + reasons about likely patterns.
+   g. \`find_linkedin_profiles\` (Firecrawl LinkedIn search) ONLY as the final fallback when no email exists anywhere. Surface the LinkedIn URLs so Nuel can DM manually.
 3. Filter: seed–Series B, 1–200 people. Tag each lead [A] or [B].
 4. Present results as a numbered list: company, 1-line description, stage/size, [A/B], roles, contact (or LinkedIn fallback), source URL.
 5. \`draft_pitch\` using the correct template for that lead's bucket. Show draft + recipients for approval unless user said "send it".
@@ -616,6 +622,87 @@ export const Route = createFileRoute("/api/chat")({
               } catch (e) {
                 return { ...input, error: (e as Error).message };
               }
+            },
+          }),
+          prospeo_email_finder: tool({
+            description:
+              "Prospeo email finder. Given first/last name + company domain (or company name), returns verified work email. Use after Hunter fails.",
+            inputSchema: z.object({
+              firstName: z.string(),
+              lastName: z.string(),
+              domain: z.string().optional(),
+              company: z.string().optional(),
+            }),
+            execute: async (input) => {
+              try { return await prospeoEmailFinder(input); }
+              catch (e) { return { ...input, error: (e as Error).message }; }
+            },
+          }),
+          prospeo_domain_search: tool({
+            description: "Prospeo domain search — list emails associated with a company domain.",
+            inputSchema: z.object({
+              domain: z.string(),
+              limit: z.number().min(1).max(100).default(20),
+            }),
+            execute: async (input) => {
+              try { return await prospeoDomainSearch(input); }
+              catch (e) { return { domain: input.domain, error: (e as Error).message, emails: [] }; }
+            },
+          }),
+          pdl_person_enrich: tool({
+            description:
+              "People Data Labs person enrichment. Best when you have a name + company domain OR a LinkedIn profile URL. Returns verified work email, title, LinkedIn. Use after Prospeo fails.",
+            inputSchema: z.object({
+              firstName: z.string().optional(),
+              lastName: z.string().optional(),
+              fullName: z.string().optional(),
+              domain: z.string().optional(),
+              company: z.string().optional(),
+              profile: z.string().optional().describe("LinkedIn profile URL if known"),
+              minLikelihood: z.number().min(1).max(10).optional(),
+            }),
+            execute: async (input) => {
+              try { return await pdlPersonEnrich(input); }
+              catch (e) { return { ...input, error: (e as Error).message }; }
+            },
+          }),
+          pdl_person_search: tool({
+            description:
+              "People Data Labs person search — find executives/HR at a company by domain + titles.",
+            inputSchema: z.object({
+              domain: z.string(),
+              titles: z.array(z.string()).optional(),
+              size: z.number().min(1).max(100).optional(),
+            }),
+            execute: async (input) => {
+              try { return await pdlPersonSearch(input); }
+              catch (e) { return { domain: input.domain, error: (e as Error).message, people: [] }; }
+            },
+          }),
+          tomba_domain_search: tool({
+            description:
+              "Tomba.io domain search. Returns emails for a company domain, with department/seniority filters. Use after PDL fails.",
+            inputSchema: z.object({
+              domain: z.string(),
+              limit: z.number().min(1).max(100).default(20),
+              department: z.string().optional(),
+              seniority: z.string().optional(),
+            }),
+            execute: async (input) => {
+              try { return await tombaDomainSearch(input); }
+              catch (e) { return { domain: input.domain, error: (e as Error).message, emails: [] }; }
+            },
+          }),
+          tomba_email_finder: tool({
+            description: "Tomba.io email finder — first/last name + domain → email.",
+            inputSchema: z.object({
+              domain: z.string(),
+              firstName: z.string(),
+              lastName: z.string(),
+            }),
+            execute: async (input) => {
+              try { return await tombaEmailFinder(input); }
+              catch (e) { return { ...input, error: (e as Error).message }; }
             },
           }),
           ai_source_emails: tool({
