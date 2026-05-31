@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 /**
  * Poll Resend for the status of one or more email IDs.
  * Body: { ids: string[] }
- * Returns: { statuses: Array<{ id, to, subject, last_event, created_at, ... }> }
+ * Returns: { statuses: Array<{ id, to, subject, last_event, created_at, ... }>, notice? }
  *
  * This complements the webhook endpoint — the in-memory webhook store does not
  * survive Worker cold starts, so we read live status from Resend directly.
@@ -31,8 +31,10 @@ export const Route = createFileRoute("/api/email-status")({
           ? (body.ids.filter((x) => typeof x === "string") as string[]).slice(0, 100)
           : [];
 
+        let authNotice: string | undefined;
+        const uniqueIds = [...new Set(ids)];
         const statuses = await Promise.all(
-          ids.map(async (id) => {
+          uniqueIds.map(async (id) => {
             try {
               const r = await fetch(
                 `https://connector-gateway.lovable.dev/resend/emails/${encodeURIComponent(id)}`,
@@ -45,7 +47,11 @@ export const Route = createFileRoute("/api/email-status")({
               );
               const data = (await r.json().catch(() => ({}))) as Record<string, any>;
               if (!r.ok) {
-                return { id, error: `${r.status}`, raw: data };
+                if (r.status === 401 || r.status === 403) {
+                  authNotice = `Resend status lookup returned ${r.status}. Showing sent until webhook events arrive.`;
+                  return { id, last_event: "sent" };
+                }
+                return { id, last_event: "sent", error: `${r.status}` };
               }
               return {
                 id,
@@ -55,12 +61,12 @@ export const Route = createFileRoute("/api/email-status")({
                 created_at: data.created_at,
               };
             } catch (e) {
-              return { id, error: (e as Error).message };
+              return { id, last_event: "sent", error: (e as Error).message };
             }
           }),
         );
 
-        return new Response(JSON.stringify({ statuses }), {
+        return new Response(JSON.stringify({ statuses, notice: authNotice }), {
           headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
         });
       },
