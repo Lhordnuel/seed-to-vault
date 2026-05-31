@@ -752,8 +752,24 @@ type ResendStatus = {
   error?: string;
 };
 
+const STATUS_LABELS: Record<string, string> = {
+  sent: "SENT",
+  delivered: "DELIVERED",
+  opened: "OPENED",
+  clicked: "CLICKED",
+  bounced: "BOUNCED",
+  complained: "COMPLAINT",
+  delivery_delayed: "DELAYED",
+};
+
+function normalizeEmailEvent(event?: string) {
+  if (!event) return "sent";
+  return event.replace(/^email\./, "").toLowerCase();
+}
+
 function useResendStatuses(sent: SentEmail[]) {
   const [statuses, setStatuses] = useState<Record<string, ResendStatus>>({});
+  const [notice, setNotice] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
   const ids = useMemo(() => sent.map((s) => s.resendId).filter(Boolean), [sent]);
   const key = ids.join(",");
@@ -772,13 +788,14 @@ function useResendStatuses(sent: SentEmail[]) {
           body: JSON.stringify({ ids }),
         });
         if (!r.ok) return;
-        const data = (await r.json()) as { statuses: ResendStatus[] };
+        const data = (await r.json()) as { statuses: ResendStatus[]; notice?: string };
         if (cancelled) return;
         const map: Record<string, ResendStatus> = {};
         (data.statuses ?? []).forEach((s) => {
           map[s.id] = s;
         });
         setStatuses(map);
+        setNotice(data.notice);
       } catch {
         /* ignore */
       } finally {
@@ -793,7 +810,7 @@ function useResendStatuses(sent: SentEmail[]) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
-  return { statuses, loading };
+  return { statuses, loading, notice };
 }
 
 function DeliverySheet() {
@@ -804,7 +821,7 @@ function DeliverySheet() {
     refresh();
     return subscribeSentEmails(refresh);
   }, []);
-  const { statuses, loading } = useResendStatuses(sent);
+  const { statuses, loading, notice } = useResendStatuses(sent);
 
   // Webhook events keyed by resendId for quick lookup
   const webhookById = useMemo(() => {
@@ -821,6 +838,7 @@ function DeliverySheet() {
         Status polled from Resend every 15s. Webhook events
         (<code className="rounded bg-muted px-1">/api/public/resend-webhook</code>)
         layer in real-time opens/bounces when configured.
+        {notice ? <span className="mt-1 block">{notice}</span> : null}
       </div>
       {sent.length === 0 ? (
         <div className="px-4 py-6 text-xs text-muted-foreground">
@@ -833,19 +851,17 @@ function DeliverySheet() {
           {sent.map((s) => {
             const wh = webhookById.get(s.resendId);
             const st = statuses[s.resendId];
-            const latest =
-              wh?.latest ??
-              (st?.last_event ? `email.${st.last_event}` : "email.sent");
+            const latestKey = normalizeEmailEvent(wh?.latest ?? st?.last_event);
             return (
               <div key={s.resendId} className="px-3 py-2.5 text-xs">
                 <div className="flex items-center justify-between gap-2">
                   <span className="truncate font-medium">{s.to}</span>
                   <span
                     className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${statusBadge(
-                      latest,
+                      `email.${latestKey}`,
                     )}`}
                   >
-                    {latest.replace(/^email\./, "")}
+                    {STATUS_LABELS[latestKey] ?? latestKey.toUpperCase()}
                   </span>
                 </div>
                 {s.subject ? (
@@ -863,7 +879,7 @@ function DeliverySheet() {
                       {new Date(h.at).toLocaleTimeString()}
                     </span>
                   ))}
-                  {st?.error ? (
+                  {st?.error && latestKey !== "sent" ? (
                     <span className="rounded bg-destructive/15 px-1.5 py-0.5 text-destructive">
                       resend: {st.error}
                     </span>
