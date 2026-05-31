@@ -48,7 +48,7 @@ export const Route = createFileRoute("/api/email-status")({
               const data = (await r.json().catch(() => ({}))) as Record<string, any>;
               if (!r.ok) {
                 if (r.status === 401 || r.status === 403) {
-                  authNotice = `Resend status lookup returned ${r.status}. Showing sent until webhook events arrive.`;
+                  authNotice = "Live delivery lookup needs read access. Showing sent status and webhook updates.";
                   return { id, last_event: "sent" };
                 }
                 return { id, last_event: "sent", error: `${r.status}` };
