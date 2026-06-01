@@ -871,20 +871,36 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
           }),
           draft_pitch: tool({
             description:
-              "Draft a personalized cold outreach pitch for Vaultio targeted at a specific company. Use after you have details about the company.",
+              "Draft a personalized cold outreach pitch for Vaultio targeted at a SPECIFIC person at a specific company. REQUIRES research fields — do NOT call this until you have scraped the company site AND the recipient's LinkedIn/about page.",
             inputSchema: z.object({
               companyName: z.string(),
-              whatTheyDo: z.string(),
-              hiringRoles: z.array(z.string()).optional(),
+              recipientName: z.string().describe("Named person (no role-based inboxes)"),
+              recipientRole: z.string(),
+              whatTheyDo: z.string().describe("Specific — what the company actually builds, for whom"),
+              vertical: z.string().describe("Industry/vertical, e.g. fintech, devtools, healthtech, agency, marketplace"),
+              hiringRoles: z.array(z.string()).min(1),
               stage: z.string().optional(),
               size: z.string().optional(),
-              angle: z
+              recipientResearch: z
                 .string()
-                .optional()
-                .describe("Optional hook the user wants emphasized"),
+                .min(20)
+                .describe("Concrete fact about the recipient from their LinkedIn/about page: recent post, prior company, tenure, shipped project. Used in the opener."),
+              companyResearch: z
+                .string()
+                .min(20)
+                .describe("Concrete fact about the company from their site: recent launch, product specific, customer segment, JD detail. Used to tailor positioning."),
+              industryPain: z
+                .string()
+                .min(10)
+                .describe("Specific hiring pain for THIS vertical (not generic). E.g. 'fintech roles need compliance-vetted engineers'."),
+              angle: z.string().optional().describe("Optional hook to emphasize"),
             }),
             execute: async (input) => {
-              return { ...input, instruction: "Use this context to write a 4-6 sentence email pitch. Subject line first." };
+              return {
+                ...input,
+                instruction:
+                  "Write a 5–7 sentence email. Subject line first (<60 chars, references recipientResearch or companyResearch). Opener (sentence 1–2) MUST cite recipientResearch or companyResearch — no generic 'Saw [Company] is hiring'. Value paragraph maps Vaultio to industryPain for this vertical. End with a soft 5-min ask. Sign as Emmanuel, Founder of Vaultio. Every email must be unique to this recipient.",
+              };
             },
           }),
           send_pitch: tool({
