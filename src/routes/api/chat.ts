@@ -130,6 +130,7 @@ How to work:
 7. SINGLE → \`send_pitch\`. MULTIPLE → \`bulk_send_pitch\` ONCE (rate-limited, dedupes). Each body MUST be unique and personalized.
 8. NEVER send without a recipient email. NEVER send to generic / role-based inboxes (info@, hello@, contact@, sales@, support@, admin@, jobs@, careers@, hr@, talent@, recruiting@, team@, etc.). Use only a named person's work email; otherwise fall back to LinkedIn.
 9. NEVER loop \`send_pitch\` for batches. NEVER reuse the same body across recipients.
+10. ANTI-REUSE ENFORCEMENT (server-side): the send tools reject any email whose subject, opening sentence, or 5-word body shingles overlap too much with a previously sent email this session. Keep the CORE Vaultio positioning consistent (post-once distribution, AI ranking, auto-assessments, Studio, 30-min/hire outcome) but vary per recipient: (a) different subject hook tied to recipientResearch/companyResearch, (b) different opening sentence built from a different researched fact, (c) different body structure — alternate bullets vs prose, reorder value paragraphs, swap which pain you lead with based on vertical. If a send is rejected for reuse, rewrite those three elements and retry — do NOT just tweak one word.
 
 Be concise. Use markdown. Never invent companies, URLs, emails, or research facts — if you didn't scrape it, don't claim it.`;
 
@@ -139,6 +140,73 @@ type SearchHit = { title?: string; url?: string; description?: string };
 // Server-session dedup: prevents the same email from receiving multiple pitches
 // while this Worker instance is warm. Resets on cold start.
 const sentEmailsThisSession = new Set<string>();
+
+// Anti-reuse: track fingerprints of recently sent subjects + bodies so the agent
+// can't ship near-identical copy to multiple recipients. Tunable thresholds keep
+// the core pitch consistent while forcing per-recipient variation in opener,
+// subject line, and structural ordering.
+const SUBJECT_REUSE_LIMIT = 0.7; // jaccard over tokens
+const BODY_REUSE_LIMIT = 0.6;    // jaccard over 5-word shingles
+const OPENER_REUSE_LIMIT = 0.75; // jaccard over first-sentence tokens
+const sentSubjectTokens: Set<string>[] = [];
+const sentBodyShingles: Set<string>[] = [];
+const sentOpenerTokens: Set<string>[] = [];
+
+function normalize(s: string) {
+  return s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+}
+function tokens(s: string) {
+  return new Set(normalize(s).split(" ").filter((t) => t.length > 2));
+}
+function shingles(s: string, n = 5) {
+  const words = normalize(s).split(" ").filter(Boolean);
+  const out = new Set<string>();
+  for (let i = 0; i <= words.length - n; i++) out.add(words.slice(i, i + n).join(" "));
+  return out;
+}
+function jaccard(a: Set<string>, b: Set<string>) {
+  if (!a.size || !b.size) return 0;
+  let inter = 0;
+  for (const x of a) if (b.has(x)) inter++;
+  return inter / (a.size + b.size - inter);
+}
+function firstSentence(body: string) {
+  const m = body.replace(/^\s*(hi|hey|hello)[^\n,]*[,\n]/i, "").trim();
+  return m.split(/(?<=[.!?])\s+/)[0] ?? m.slice(0, 160);
+}
+function checkReuse(subject: string, body: string): { ok: true } | { ok: false; reason: string } {
+  const sTok = tokens(subject);
+  const oTok = tokens(firstSentence(body));
+  const bSh = shingles(body, 5);
+  for (const prev of sentSubjectTokens) {
+    if (jaccard(sTok, prev) >= SUBJECT_REUSE_LIMIT) {
+      return { ok: false, reason: `Subject too similar to a previously sent email (jaccard ≥ ${SUBJECT_REUSE_LIMIT}). Rewrite the subject with a different personalized hook.` };
+    }
+  }
+  for (const prev of sentOpenerTokens) {
+    if (jaccard(oTok, prev) >= OPENER_REUSE_LIMIT) {
+      return { ok: false, reason: `Opening sentence too similar to a previously sent email. Rewrite the first sentence around a different recipient-specific fact.` };
+    }
+  }
+  for (const prev of sentBodyShingles) {
+    if (jaccard(bSh, prev) >= BODY_REUSE_LIMIT) {
+      return { ok: false, reason: `Body too similar to a previously sent email (5-word shingle overlap ≥ ${BODY_REUSE_LIMIT}). Vary structure: reorder paragraphs, swap bullets for prose (or vice versa), change the value-prop framing for this vertical.` };
+    }
+  }
+  return { ok: true };
+}
+function recordSent(subject: string, body: string) {
+  sentSubjectTokens.push(tokens(subject));
+  sentOpenerTokens.push(tokens(firstSentence(body)));
+  sentBodyShingles.push(shingles(body, 5));
+  // cap history so warm workers don't grow unbounded
+  if (sentSubjectTokens.length > 200) {
+    sentSubjectTokens.shift();
+    sentOpenerTokens.shift();
+    sentBodyShingles.shift();
+  }
+}
+
 
 const GENERIC_EMAIL_LOCAL_PARTS = new Set([
   "admin",
@@ -189,6 +257,10 @@ async function sendPitchEmail(opts: {
       subject,
       error: "Blocked: generic/role-based inbox. Use a named person's work email instead.",
     };
+  }
+  const reuse = checkReuse(subject, body);
+  if (!reuse.ok) {
+    return { sent: false, to, subject, error: reuse.reason };
   }
   const resendKey = process.env.RESEND_API_KEY;
   const lovableKey = process.env.LOVABLE_API_KEY;
@@ -269,6 +341,7 @@ async function sendPitchEmail(opts: {
       return { sent: false, to, subject, error: `Resend ${res.status}: ${JSON.stringify(data)}` };
     }
     sentEmailsThisSession.add(to.toLowerCase().trim());
+    recordSent(subject, body);
     return { sent: true, to, subject, companyName, replyTo: "nuel@vaultio.tech", resendId: data?.id };
   } catch (e) {
     return { sent: false, to, subject, error: (e as Error).message };
