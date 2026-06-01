@@ -140,6 +140,73 @@ type SearchHit = { title?: string; url?: string; description?: string };
 // while this Worker instance is warm. Resets on cold start.
 const sentEmailsThisSession = new Set<string>();
 
+// Anti-reuse: track fingerprints of recently sent subjects + bodies so the agent
+// can't ship near-identical copy to multiple recipients. Tunable thresholds keep
+// the core pitch consistent while forcing per-recipient variation in opener,
+// subject line, and structural ordering.
+const SUBJECT_REUSE_LIMIT = 0.7; // jaccard over tokens
+const BODY_REUSE_LIMIT = 0.6;    // jaccard over 5-word shingles
+const OPENER_REUSE_LIMIT = 0.75; // jaccard over first-sentence tokens
+const sentSubjectTokens: Set<string>[] = [];
+const sentBodyShingles: Set<string>[] = [];
+const sentOpenerTokens: Set<string>[] = [];
+
+function normalize(s: string) {
+  return s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+}
+function tokens(s: string) {
+  return new Set(normalize(s).split(" ").filter((t) => t.length > 2));
+}
+function shingles(s: string, n = 5) {
+  const words = normalize(s).split(" ").filter(Boolean);
+  const out = new Set<string>();
+  for (let i = 0; i <= words.length - n; i++) out.add(words.slice(i, i + n).join(" "));
+  return out;
+}
+function jaccard(a: Set<string>, b: Set<string>) {
+  if (!a.size || !b.size) return 0;
+  let inter = 0;
+  for (const x of a) if (b.has(x)) inter++;
+  return inter / (a.size + b.size - inter);
+}
+function firstSentence(body: string) {
+  const m = body.replace(/^\s*(hi|hey|hello)[^\n,]*[,\n]/i, "").trim();
+  return m.split(/(?<=[.!?])\s+/)[0] ?? m.slice(0, 160);
+}
+function checkReuse(subject: string, body: string): { ok: true } | { ok: false; reason: string } {
+  const sTok = tokens(subject);
+  const oTok = tokens(firstSentence(body));
+  const bSh = shingles(body, 5);
+  for (const prev of sentSubjectTokens) {
+    if (jaccard(sTok, prev) >= SUBJECT_REUSE_LIMIT) {
+      return { ok: false, reason: `Subject too similar to a previously sent email (jaccard ≥ ${SUBJECT_REUSE_LIMIT}). Rewrite the subject with a different personalized hook.` };
+    }
+  }
+  for (const prev of sentOpenerTokens) {
+    if (jaccard(oTok, prev) >= OPENER_REUSE_LIMIT) {
+      return { ok: false, reason: `Opening sentence too similar to a previously sent email. Rewrite the first sentence around a different recipient-specific fact.` };
+    }
+  }
+  for (const prev of sentBodyShingles) {
+    if (jaccard(bSh, prev) >= BODY_REUSE_LIMIT) {
+      return { ok: false, reason: `Body too similar to a previously sent email (5-word shingle overlap ≥ ${BODY_REUSE_LIMIT}). Vary structure: reorder paragraphs, swap bullets for prose (or vice versa), change the value-prop framing for this vertical.` };
+    }
+  }
+  return { ok: true };
+}
+function recordSent(subject: string, body: string) {
+  sentSubjectTokens.push(tokens(subject));
+  sentOpenerTokens.push(tokens(firstSentence(body)));
+  sentBodyShingles.push(shingles(body, 5));
+  // cap history so warm workers don't grow unbounded
+  if (sentSubjectTokens.length > 200) {
+    sentSubjectTokens.shift();
+    sentOpenerTokens.shift();
+    sentBodyShingles.shift();
+  }
+}
+
+
 const GENERIC_EMAIL_LOCAL_PARTS = new Set([
   "admin",
   "billing",
