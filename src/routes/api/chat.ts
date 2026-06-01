@@ -257,6 +257,10 @@ async function sendPitchEmail(opts: {
       error: "Blocked: generic/role-based inbox. Use a named person's work email instead.",
     };
   }
+  const reuse = checkReuse(subject, body);
+  if (!reuse.ok) {
+    return { sent: false, to, subject, error: reuse.reason };
+  }
   const resendKey = process.env.RESEND_API_KEY;
   const lovableKey = process.env.LOVABLE_API_KEY;
   if (!resendKey || !lovableKey) {
