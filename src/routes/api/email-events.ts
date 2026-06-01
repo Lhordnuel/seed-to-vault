@@ -6,7 +6,7 @@ export const Route = createFileRoute("/api/email-events")({
   server: {
     handlers: {
       GET: async () =>
-        new Response(JSON.stringify({ events: summarize() }), {
+        new Response(JSON.stringify({ events: await summarize() }), {
           headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
         }),
     },

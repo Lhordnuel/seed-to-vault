@@ -74,7 +74,7 @@ export const Route = createFileRoute("/api/public/resend-webhook")({
           const data = body.data ?? {};
           const to = Array.isArray(data.to) ? data.to[0] : data.to;
           if (to) {
-            recordEvent({
+            await recordEvent({
               type,
               email: to,
               subject: data.subject,
