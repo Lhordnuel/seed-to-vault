@@ -340,6 +340,7 @@ async function sendPitchEmail(opts: {
       return { sent: false, to, subject, error: `Resend ${res.status}: ${JSON.stringify(data)}` };
     }
     sentEmailsThisSession.add(to.toLowerCase().trim());
+    recordSent(subject, body);
     return { sent: true, to, subject, companyName, replyTo: "nuel@vaultio.tech", resendId: data?.id };
   } catch (e) {
     return { sent: false, to, subject, error: (e as Error).message };
