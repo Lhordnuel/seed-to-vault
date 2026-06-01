@@ -835,9 +835,9 @@ function DeliverySheet() {
   return (
     <div>
       <div className="border-b bg-muted/30 px-3 py-2 text-[10px] text-muted-foreground">
-        Status polled from Resend every 15s. Webhook events
+        Live lookup runs every 15s when the Resend key allows reads. Webhook events
         (<code className="rounded bg-muted px-1">/api/public/resend-webhook</code>)
-        layer in real-time opens/bounces when configured.
+        provide persistent delivered/opened/bounced updates when configured.
         {notice ? <span className="mt-1 block">{notice}</span> : null}
       </div>
       {sent.length === 0 ? (
