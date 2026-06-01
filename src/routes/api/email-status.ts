@@ -48,7 +48,7 @@ export const Route = createFileRoute("/api/email-status")({
               const data = (await r.json().catch(() => ({}))) as Record<string, any>;
               if (!r.ok) {
                 if (r.status === 401 || r.status === 403) {
-                  authNotice = "Live delivery lookup needs read access. Showing sent status and webhook updates.";
+                  authNotice = "Resend live lookup is blocked because the connected key is send-only. Delivery updates will appear from Resend webhooks once configured with delivered/opened/bounced events.";
                   return { id, last_event: "sent" };
                 }
                 return { id, last_event: "sent", error: `${r.status}` };

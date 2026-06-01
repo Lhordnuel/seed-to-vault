@@ -115,7 +115,8 @@ How to work:
 4. Present results as a numbered list: company, 1-line description, stage/size, [A/B], roles, contact (or LinkedIn fallback), source URL.
 5. \`draft_pitch\` using the correct template for that lead's bucket. Show draft + recipients for approval unless user said "send it".
 6. SINGLE → \`send_pitch\`. MULTIPLE → \`bulk_send_pitch\` ONCE (rate-limited, dedupes). Show summary.
-7. NEVER send without a recipient email. NEVER loop \`send_pitch\` for batches.
+7. NEVER send without a recipient email. NEVER send to generic / role-based inboxes (info@, hello@, contact@, sales@, support@, admin@, jobs@, careers@, hr@, talent@, recruiting@, team@, etc.). Use only a named person's work email; otherwise fall back to LinkedIn.
+8. NEVER loop \`send_pitch\` for batches.
 
 Be concise. Use markdown. Never invent companies, URLs, or emails.`;
 
@@ -125,6 +126,41 @@ type SearchHit = { title?: string; url?: string; description?: string };
 // while this Worker instance is warm. Resets on cold start.
 const sentEmailsThisSession = new Set<string>();
 
+const GENERIC_EMAIL_LOCAL_PARTS = new Set([
+  "admin",
+  "billing",
+  "careers",
+  "contact",
+  "customersuccess",
+  "hello",
+  "help",
+  "hi",
+  "hr",
+  "info",
+  "jobs",
+  "mail",
+  "marketing",
+  "media",
+  "office",
+  "people",
+  "press",
+  "recruiting",
+  "recruitment",
+  "sales",
+  "support",
+  "talent",
+  "team",
+]);
+
+function isGenericEmail(email: string) {
+  const local = email.toLowerCase().trim().split("@")[0]?.replace(/[^a-z0-9]/g, "");
+  if (!local) return true;
+  return (
+    GENERIC_EMAIL_LOCAL_PARTS.has(local) ||
+    /^(no)?reply|donotreply|notifications?|newsletter|updates?|security|privacy|legal|abuse$/.test(local)
+  );
+}
+
 async function sendPitchEmail(opts: {
   to: string;
   subject: string;
@@ -132,6 +168,14 @@ async function sendPitchEmail(opts: {
   companyName?: string;
 }): Promise<{ sent: boolean; to: string; subject: string; companyName?: string; replyTo?: string; resendId?: string; error?: string }> {
   const { to, subject, body, companyName } = opts;
+  if (isGenericEmail(to)) {
+    return {
+      sent: false,
+      to,
+      subject,
+      error: "Blocked: generic/role-based inbox. Use a named person's work email instead.",
+    };
+  }
   const resendKey = process.env.RESEND_API_KEY;
   const lovableKey = process.env.LOVABLE_API_KEY;
   if (!resendKey || !lovableKey) {
