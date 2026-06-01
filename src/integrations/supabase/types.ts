@@ -14,7 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      email_delivery_events: {
+        Row: {
+          bounce_reason: string | null
+          created_at: string
+          email: string
+          event_at: string
+          id: string
+          raw: Json
+          resend_id: string | null
+          subject: string | null
+          type: string
+        }
+        Insert: {
+          bounce_reason?: string | null
+          created_at?: string
+          email: string
+          event_at?: string
+          id?: string
+          raw?: Json
+          resend_id?: string | null
+          subject?: string | null
+          type: string
+        }
+        Update: {
+          bounce_reason?: string | null
+          created_at?: string
+          email?: string
+          event_at?: string
+          id?: string
+          raw?: Json
+          resend_id?: string | null
+          subject?: string | null
+          type?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
