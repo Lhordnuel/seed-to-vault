@@ -130,6 +130,7 @@ How to work:
 7. SINGLE → \`send_pitch\`. MULTIPLE → \`bulk_send_pitch\` ONCE (rate-limited, dedupes). Each body MUST be unique and personalized.
 8. NEVER send without a recipient email. NEVER send to generic / role-based inboxes (info@, hello@, contact@, sales@, support@, admin@, jobs@, careers@, hr@, talent@, recruiting@, team@, etc.). Use only a named person's work email; otherwise fall back to LinkedIn.
 9. NEVER loop \`send_pitch\` for batches. NEVER reuse the same body across recipients.
+10. ANTI-REUSE ENFORCEMENT (server-side): the send tools reject any email whose subject, opening sentence, or 5-word body shingles overlap too much with a previously sent email this session. Keep the CORE Vaultio positioning consistent (post-once distribution, AI ranking, auto-assessments, Studio, 30-min/hire outcome) but vary per recipient: (a) different subject hook tied to recipientResearch/companyResearch, (b) different opening sentence built from a different researched fact, (c) different body structure — alternate bullets vs prose, reorder value paragraphs, swap which pain you lead with based on vertical. If a send is rejected for reuse, rewrite those three elements and retry — do NOT just tweak one word.
 
 Be concise. Use markdown. Never invent companies, URLs, emails, or research facts — if you didn't scrape it, don't claim it.`;
 
