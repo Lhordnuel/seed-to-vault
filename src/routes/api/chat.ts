@@ -19,7 +19,9 @@ import {
   apolloSearchOrganizations,
   apolloFindExecutives,
   apolloEnrichPerson,
+  isUsableApolloEmail,
 } from "@/lib/apollo.server";
+import { lushaCompanyEmployees, lushaPersonEnrich } from "@/lib/lusha.server";
 import { hunterDomainSearch, hunterEmailFinder } from "@/lib/hunter.server";
 import { prospeoDomainSearch, prospeoEmailFinder } from "@/lib/prospeo.server";
 import { pdlPersonEnrich, pdlPersonSearch } from "@/lib/pdl.server";
@@ -116,13 +118,14 @@ Examples: "[Name], saw your [specific thing]" · "[Company]'s [Role] hire — qu
 How to work:
 1. Discovery (PRIMARY = Firecrawl): \`search_startups\` across Wellfound/F6S/YC/LinkedIn → \`scrape_company\` to confirm stage, size, role context. Only fall back to \`apollo_search_startups\` if Firecrawl returns nothing useful.
 2. Contact lookup — STRICT ORDER, stop at first success that yields a usable email:
-   a. \`apollo_find_contacts\` (verified emails — Template B prefers People/Talent/HR titles, Template A prefers CEO/Founder/CTO).
-   b. \`hunter_domain_search\` if Apollo fails or returns no email — Template B pass department='hr', Template A pass seniority='executive'. Use \`hunter_email_finder\` when you have a specific name + domain.
-   c. \`prospeo_email_finder\` / \`prospeo_domain_search\` if Hunter fails.
-   d. \`pdl_person_enrich\` / \`pdl_person_search\` (People Data Labs) if Prospeo fails — best when you have a name or LinkedIn URL.
-   e. \`tomba_domain_search\` / \`tomba_email_finder\` if PDL fails.
-   f. \`ai_source_emails\` (Claude Opus on AWS Bedrock) if every provider above failed — scrapes site + reasons about likely patterns.
-   g. \`find_linkedin_profiles\` (Firecrawl LinkedIn search) ONLY as the final fallback when no email exists anywhere. Surface the LinkedIn URLs so Nuel can DM manually.
+   a. \`apollo_find_contacts\` (verified emails — Template B prefers People/Talent/HR titles, Template A prefers CEO/Founder/CTO). NOTE: Apollo masks emails as 'email_not_unlocked@domain.com' when reveal credits are exhausted — the tool filters these out automatically. If Apollo returns no usable email, move on.
+   b. \`lusha_find_contacts\` (or \`lusha_enrich_person\` if you have a specific name) — primary fallback when Apollo returns nothing.
+   c. \`hunter_domain_search\` if Lusha fails — Template B pass department='hr', Template A pass seniority='executive'. Use \`hunter_email_finder\` when you have a specific name + domain.
+   d. \`prospeo_email_finder\` / \`prospeo_domain_search\` if Hunter fails.
+   e. \`pdl_person_enrich\` / \`pdl_person_search\` (People Data Labs) if Prospeo fails — best when you have a name or LinkedIn URL.
+   f. \`tomba_domain_search\` / \`tomba_email_finder\` if PDL fails.
+   g. \`ai_source_emails\` (Claude Opus on AWS Bedrock) if every provider above failed — scrapes site + reasons about likely patterns.
+   h. \`find_linkedin_profiles\` (Firecrawl LinkedIn search) ONLY as the final fallback when no email exists anywhere. Surface the LinkedIn URLs so Nuel can DM manually.
 3. RESEARCH PASS (MANDATORY before draft_pitch): for each recipient, run \`scrape_company\` on the company site AND on the recipient's LinkedIn/about page. Record 2–3 specific facts (recent launch, vertical, JD specifics, recipient background) and the industry pain you'll lead with.
 4. Filter: seed–Series B, 1–200 people. Tag each lead [A] or [B].
 5. Present results as a numbered list: company, 1-line description, stage/size, [A/B], roles, contact (or LinkedIn fallback), source URL, AND the research bullets you'll personalize on.
@@ -423,7 +426,7 @@ export const Route = createFileRoute("/api/chat")({
                 });
                 const enriched = await Promise.all(
                   people.map(async (p) => {
-                    let email = p.email;
+                    let email = isUsableApolloEmail(p.email) ? p.email : undefined;
                     if (reveal && !email && p.first_name && p.last_name) {
                       try {
                         const m = await apolloEnrichPerson({
@@ -432,8 +435,10 @@ export const Route = createFileRoute("/api/chat")({
                           domain,
                           organizationName: companyName,
                           linkedinUrl: p.linkedin_url,
+                          revealPersonalEmails: true,
                         });
-                        email = m?.email ?? email;
+                        const candidate = m?.email;
+                        if (isUsableApolloEmail(candidate)) email = candidate;
                       } catch {
                         /* skip */
                       }
@@ -455,11 +460,76 @@ export const Route = createFileRoute("/api/chat")({
                   primaryContact: withEmail[0] ?? enriched[0] ?? null,
                   note:
                     withEmail.length === 0
-                      ? "Apollo returned no verified emails. Fall back to find_executive_contacts."
+                      ? "Apollo returned no verified emails (likely out of reveal credits or masked). Fall back to lusha_find_contacts, then hunter_domain_search."
                       : undefined,
                 };
               } catch (e) {
                 return { error: (e as Error).message, contacts: [] };
+              }
+            },
+          }),
+          lusha_find_contacts: tool({
+            description:
+              "Lusha contact lookup by company domain. Use as the FIRST fallback when Apollo returns no usable email (Apollo often masks emails as 'email_not_unlocked@domain.com' when out of reveal credits). Returns enriched contacts with business emails. Pass titles for Template A (CEO, Founder, CTO) or seniority=['director','vp','c_suite'] / titles for HR roles for Template B.",
+            inputSchema: z.object({
+              domain: z.string().describe("Company domain, e.g. 'acme.com'"),
+              titles: z
+                .array(z.string())
+                .optional()
+                .describe(
+                  "Job titles to filter (e.g. ['CEO','Founder','CTO'] or ['Head of People','Talent Acquisition'])",
+                ),
+              seniority: z
+                .array(z.string())
+                .optional()
+                .describe("Lusha seniority filters, e.g. ['c_suite','vp','director']"),
+              limit: z.number().int().min(1).max(25).default(10),
+            }),
+            execute: async ({ domain, titles, seniority, limit }) => {
+              try {
+                const contacts = await lushaCompanyEmployees({
+                  domain,
+                  titles,
+                  seniority,
+                  limit,
+                });
+                const withEmail = contacts.filter((c) => c.email);
+                return {
+                  domain,
+                  contacts,
+                  primaryContact: withEmail[0] ?? contacts[0] ?? null,
+                  note:
+                    withEmail.length === 0
+                      ? "Lusha returned no emails (likely out of credits or no match). Fall back to hunter_domain_search."
+                      : undefined,
+                };
+              } catch (e) {
+                return { error: (e as Error).message, contacts: [] };
+              }
+            },
+          }),
+          lusha_enrich_person: tool({
+            description:
+              "Lusha single-person enrichment by name + company domain (or LinkedIn URL). Use when you have a specific named person from Firecrawl/LinkedIn and need their work email.",
+            inputSchema: z.object({
+              firstName: z.string(),
+              lastName: z.string(),
+              domain: z.string().optional(),
+              companyName: z.string().optional(),
+              linkedinUrl: z.string().optional(),
+            }),
+            execute: async ({ firstName, lastName, domain, companyName, linkedinUrl }) => {
+              try {
+                const contact = await lushaPersonEnrich({
+                  firstName,
+                  lastName,
+                  domain,
+                  companyName,
+                  linkedinUrl,
+                });
+                return { contact, found: !!contact?.email };
+              } catch (e) {
+                return { error: (e as Error).message, contact: null };
               }
             },
           }),
