@@ -49,9 +49,20 @@ export type ApolloPerson = {
   name?: string;
   title?: string;
   email?: string;
+  email_status?: string;
   linkedin_url?: string;
   organization?: { name?: string; primary_domain?: string };
 };
+
+/** Apollo returns placeholder emails when not unlocked. Detect & treat as missing. */
+export function isUsableApolloEmail(email?: string | null): email is string {
+  if (!email) return false;
+  const e = email.toLowerCase();
+  if (e.includes("email_not_unlocked")) return false;
+  if (e.includes("domain.com") && e.startsWith("email_not_unlocked")) return false;
+  if (e === "not_unlocked@domain.com") return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+}
 
 /**
  * Search startups using Apollo's organization mixed search.
