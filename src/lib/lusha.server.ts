@@ -127,7 +127,7 @@ export async function lushaCompanyEmployees(opts: {
 function normalize(c: Record<string, unknown>): LushaContact {
   const data = (c.data ?? c) as Record<string, unknown>;
   const name =
-    (data.name as string | undefined) ??
+    (data.name as string | undefined) ||
     [data.firstName, data.lastName].filter(Boolean).join(" ").trim() ||
     undefined;
   const emailsRaw = (data.emailAddresses ?? data.emails ?? []) as Array<
