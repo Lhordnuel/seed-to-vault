@@ -467,6 +467,71 @@ export const Route = createFileRoute("/api/chat")({
               }
             },
           }),
+          lusha_find_contacts: tool({
+            description:
+              "Lusha contact lookup by company domain. Use as the FIRST fallback when Apollo returns no usable email (Apollo often masks emails as 'email_not_unlocked@domain.com' when out of reveal credits). Returns enriched contacts with business emails. Pass titles for Template A (CEO, Founder, CTO) or seniority=['director','vp','c_suite'] / titles for HR roles for Template B.",
+            inputSchema: z.object({
+              domain: z.string().describe("Company domain, e.g. 'acme.com'"),
+              titles: z
+                .array(z.string())
+                .optional()
+                .describe(
+                  "Job titles to filter (e.g. ['CEO','Founder','CTO'] or ['Head of People','Talent Acquisition'])",
+                ),
+              seniority: z
+                .array(z.string())
+                .optional()
+                .describe("Lusha seniority filters, e.g. ['c_suite','vp','director']"),
+              limit: z.number().int().min(1).max(25).default(10),
+            }),
+            execute: async ({ domain, titles, seniority, limit }) => {
+              try {
+                const contacts = await lushaCompanyEmployees({
+                  domain,
+                  titles,
+                  seniority,
+                  limit,
+                });
+                const withEmail = contacts.filter((c) => c.email);
+                return {
+                  domain,
+                  contacts,
+                  primaryContact: withEmail[0] ?? contacts[0] ?? null,
+                  note:
+                    withEmail.length === 0
+                      ? "Lusha returned no emails (likely out of credits or no match). Fall back to hunter_domain_search."
+                      : undefined,
+                };
+              } catch (e) {
+                return { error: (e as Error).message, contacts: [] };
+              }
+            },
+          }),
+          lusha_enrich_person: tool({
+            description:
+              "Lusha single-person enrichment by name + company domain (or LinkedIn URL). Use when you have a specific named person from Firecrawl/LinkedIn and need their work email.",
+            inputSchema: z.object({
+              firstName: z.string(),
+              lastName: z.string(),
+              domain: z.string().optional(),
+              companyName: z.string().optional(),
+              linkedinUrl: z.string().optional(),
+            }),
+            execute: async ({ firstName, lastName, domain, companyName, linkedinUrl }) => {
+              try {
+                const contact = await lushaPersonEnrich({
+                  firstName,
+                  lastName,
+                  domain,
+                  companyName,
+                  linkedinUrl,
+                });
+                return { contact, found: !!contact?.email };
+              } catch (e) {
+                return { error: (e as Error).message, contact: null };
+              }
+            },
+          }),
           search_startups: tool({
             description:
               "Search for startups hiring on a given source. Use this to discover candidate companies. Returns a list of result URLs and snippets.",
