@@ -425,7 +425,7 @@ export const Route = createFileRoute("/api/chat")({
                 });
                 const enriched = await Promise.all(
                   people.map(async (p) => {
-                    let email = p.email;
+                    let email = isUsableApolloEmail(p.email) ? p.email : undefined;
                     if (reveal && !email && p.first_name && p.last_name) {
                       try {
                         const m = await apolloEnrichPerson({
@@ -434,8 +434,10 @@ export const Route = createFileRoute("/api/chat")({
                           domain,
                           organizationName: companyName,
                           linkedinUrl: p.linkedin_url,
+                          revealPersonalEmails: true,
                         });
-                        email = m?.email ?? email;
+                        const candidate = m?.email;
+                        if (isUsableApolloEmail(candidate)) email = candidate;
                       } catch {
                         /* skip */
                       }
@@ -457,7 +459,7 @@ export const Route = createFileRoute("/api/chat")({
                   primaryContact: withEmail[0] ?? enriched[0] ?? null,
                   note:
                     withEmail.length === 0
-                      ? "Apollo returned no verified emails. Fall back to find_executive_contacts."
+                      ? "Apollo returned no verified emails (likely out of reveal credits or masked). Fall back to lusha_find_contacts, then hunter_domain_search."
                       : undefined,
                 };
               } catch (e) {
