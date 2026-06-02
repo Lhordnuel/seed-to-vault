@@ -118,13 +118,14 @@ Examples: "[Name], saw your [specific thing]" · "[Company]'s [Role] hire — qu
 How to work:
 1. Discovery (PRIMARY = Firecrawl): \`search_startups\` across Wellfound/F6S/YC/LinkedIn → \`scrape_company\` to confirm stage, size, role context. Only fall back to \`apollo_search_startups\` if Firecrawl returns nothing useful.
 2. Contact lookup — STRICT ORDER, stop at first success that yields a usable email:
-   a. \`apollo_find_contacts\` (verified emails — Template B prefers People/Talent/HR titles, Template A prefers CEO/Founder/CTO).
-   b. \`hunter_domain_search\` if Apollo fails or returns no email — Template B pass department='hr', Template A pass seniority='executive'. Use \`hunter_email_finder\` when you have a specific name + domain.
-   c. \`prospeo_email_finder\` / \`prospeo_domain_search\` if Hunter fails.
-   d. \`pdl_person_enrich\` / \`pdl_person_search\` (People Data Labs) if Prospeo fails — best when you have a name or LinkedIn URL.
-   e. \`tomba_domain_search\` / \`tomba_email_finder\` if PDL fails.
-   f. \`ai_source_emails\` (Claude Opus on AWS Bedrock) if every provider above failed — scrapes site + reasons about likely patterns.
-   g. \`find_linkedin_profiles\` (Firecrawl LinkedIn search) ONLY as the final fallback when no email exists anywhere. Surface the LinkedIn URLs so Nuel can DM manually.
+   a. \`apollo_find_contacts\` (verified emails — Template B prefers People/Talent/HR titles, Template A prefers CEO/Founder/CTO). NOTE: Apollo masks emails as 'email_not_unlocked@domain.com' when reveal credits are exhausted — the tool filters these out automatically. If Apollo returns no usable email, move on.
+   b. \`lusha_find_contacts\` (or \`lusha_enrich_person\` if you have a specific name) — primary fallback when Apollo returns nothing.
+   c. \`hunter_domain_search\` if Lusha fails — Template B pass department='hr', Template A pass seniority='executive'. Use \`hunter_email_finder\` when you have a specific name + domain.
+   d. \`prospeo_email_finder\` / \`prospeo_domain_search\` if Hunter fails.
+   e. \`pdl_person_enrich\` / \`pdl_person_search\` (People Data Labs) if Prospeo fails — best when you have a name or LinkedIn URL.
+   f. \`tomba_domain_search\` / \`tomba_email_finder\` if PDL fails.
+   g. \`ai_source_emails\` (Claude Opus on AWS Bedrock) if every provider above failed — scrapes site + reasons about likely patterns.
+   h. \`find_linkedin_profiles\` (Firecrawl LinkedIn search) ONLY as the final fallback when no email exists anywhere. Surface the LinkedIn URLs so Nuel can DM manually.
 3. RESEARCH PASS (MANDATORY before draft_pitch): for each recipient, run \`scrape_company\` on the company site AND on the recipient's LinkedIn/about page. Record 2–3 specific facts (recent launch, vertical, JD specifics, recipient background) and the industry pain you'll lead with.
 4. Filter: seed–Series B, 1–200 people. Tag each lead [A] or [B].
 5. Present results as a numbered list: company, 1-line description, stage/size, [A/B], roles, contact (or LinkedIn fallback), source URL, AND the research bullets you'll personalize on.
