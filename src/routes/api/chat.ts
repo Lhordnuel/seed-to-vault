@@ -425,12 +425,40 @@ export const Route = createFileRoute("/api/chat")({
                   organizationName: companyName,
                   perPage: 10,
                 });
+                let creditSummary: {
+                  creditsConsumed?: number;
+                  missingRecords?: number;
+                  bulkRevealError?: string;
+                } = {};
+                let revealedPeople = people;
+                if (reveal && people.length) {
+                  try {
+                    const bulk = await apolloBulkEnrichPeople(people, {
+                      domain,
+                      organizationName: companyName,
+                      revealPersonalEmails: true,
+                    });
+                    creditSummary = {
+                      creditsConsumed: bulk.creditsConsumed,
+                      missingRecords: bulk.missingRecords,
+                    };
+                    revealedPeople = people.map((p, i) => {
+                      const matchedById = p.id
+                        ? bulk.matches.find((m) => m.id === p.id)
+                        : undefined;
+                      return { ...p, ...(matchedById ?? bulk.matches[i] ?? {}) };
+                    });
+                  } catch (e) {
+                    creditSummary = { bulkRevealError: (e as Error).message };
+                  }
+                }
                 const enriched = await Promise.all(
-                  people.map(async (p) => {
+                  revealedPeople.map(async (p) => {
                     let email = isUsableApolloEmail(p.email) ? p.email : undefined;
                     if (reveal && !email && p.first_name && p.last_name) {
                       try {
                         const m = await apolloEnrichPerson({
+                          id: p.id,
                           firstName: p.first_name,
                           lastName: p.last_name,
                           domain,
@@ -457,11 +485,12 @@ export const Route = createFileRoute("/api/chat")({
                 return {
                   companyName,
                   domain,
+                  apolloReveal: creditSummary,
                   contacts: enriched,
                   primaryContact: withEmail[0] ?? enriched[0] ?? null,
                   note:
                     withEmail.length === 0
-                      ? "Apollo returned no verified emails (likely out of reveal credits or masked). Fall back to lusha_find_contacts, then hunter_domain_search."
+                      ? "Apollo spent/attempted reveal enrichment but returned no usable emails (likely no credits, plan lacks email reveal/API enrichment, or Apollo only had masked data). Fall back to lusha_find_contacts, then hunter_domain_search."
                       : undefined,
                 };
               } catch (e) {
