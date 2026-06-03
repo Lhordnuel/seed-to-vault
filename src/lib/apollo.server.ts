@@ -6,8 +6,16 @@ function key() {
   return k;
 }
 
-async function post(path: string, body: Record<string, unknown>) {
-  const res = await fetch(`${APOLLO_BASE}${path}`, {
+async function post(
+  path: string,
+  body: Record<string, unknown>,
+  query: Record<string, string | number | boolean | undefined> = {},
+) {
+  const url = new URL(`${APOLLO_BASE}${path}`);
+  for (const [k, v] of Object.entries(query)) {
+    if (v !== undefined) url.searchParams.set(k, String(v));
+  }
+  const res = await fetch(url.toString(), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -137,6 +145,7 @@ export async function apolloFindExecutives(opts: {
  * Uses people/match which can return email when credits are available.
  */
 export async function apolloEnrichPerson(opts: {
+  id?: string;
   firstName?: string;
   lastName?: string;
   domain?: string;
@@ -144,15 +153,49 @@ export async function apolloEnrichPerson(opts: {
   linkedinUrl?: string;
   revealPersonalEmails?: boolean;
 }) {
-  const body: Record<string, unknown> = {
-    reveal_personal_emails: opts.revealPersonalEmails ?? false,
-  };
+  const body: Record<string, unknown> = {};
+  if (opts.id) body.id = opts.id;
   if (opts.firstName) body.first_name = opts.firstName;
   if (opts.lastName) body.last_name = opts.lastName;
   if (opts.domain) body.domain = opts.domain.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
   if (opts.organizationName) body.organization_name = opts.organizationName;
   if (opts.linkedinUrl) body.linkedin_url = opts.linkedinUrl;
-
-  const data = await post("/people/match", body);
+  const data = await post("/people/match", body, {
+    reveal_personal_emails: opts.revealPersonalEmails ?? false,
+    reveal_phone_number: false,
+  });
   return (data.person ?? null) as ApolloPerson | null;
+}
+
+/**
+ * Reveal/enrich up to 10 Apollo people in one request. Apollo consumes credits
+ * per successfully enriched record, not per candidate returned by search.
+ */
+export async function apolloBulkEnrichPeople(
+  people: ApolloPerson[],
+  opts: { domain?: string; organizationName?: string; revealPersonalEmails?: boolean } = {},
+) {
+  const details = people.slice(0, 10).map((p) => ({
+    id: p.id,
+    first_name: p.first_name,
+    last_name: p.last_name,
+    name: p.name,
+    domain: opts.domain?.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0],
+    organization_name: opts.organizationName,
+    linkedin_url: p.linkedin_url,
+  }));
+
+  const data = await post(
+    "/people/bulk_match",
+    { details },
+    {
+      reveal_personal_emails: opts.revealPersonalEmails ?? true,
+      reveal_phone_number: false,
+    },
+  );
+  return {
+    matches: (data.matches ?? []) as ApolloPerson[],
+    creditsConsumed: data.credits_consumed as number | undefined,
+    missingRecords: data.missing_records as number | undefined,
+  };
 }
