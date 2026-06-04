@@ -1159,7 +1159,7 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
           }),
           bulk_send_pitch: tool({
             description:
-              "Send pitches to MULTIPLE recipients in one call. Rate-limits to ~1 email per 1.2s (Resend safe), dedupes against emails already sent in this server session, and returns a summary {sent, skippedDuplicates, failed}. Each recipient gets their own subject + body so you can personalize.",
+              "Send pitches to MULTIPLE recipients in one call. Rate-limits to ~1 email per 1.2s (Resend safe), dedupes against emails already sent in this server session, and returns a summary {sent, skippedDuplicates, failed}. Each recipient gets their own subject + body so you can personalize. Pass audience='vc' for an investor batch (clean design); default 'hiring' uses the branded layout.",
             inputSchema: z.object({
               recipients: z
                 .array(
@@ -1178,8 +1178,12 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
                 .max(10000)
                 .default(1200)
                 .describe("Delay between sends in ms (default 1200)"),
+              audience: z
+                .enum(["hiring", "vc"])
+                .default("hiring")
+                .describe("Applies to every recipient in the batch."),
             }),
-            execute: async ({ recipients, delayMs }) => {
+            execute: async ({ recipients, delayMs, audience }) => {
               const sent: Array<{ to: string; subject: string; resendId?: string; companyName?: string }> = [];
               const skippedDuplicates: string[] = [];
               const skippedInBatch: string[] = [];
@@ -1204,6 +1208,7 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
                   subject: r.subject,
                   body: r.body,
                   companyName: r.companyName,
+                  audience,
                 });
                 if (result.sent) {
                   sentEmailsThisSession.add(email);
