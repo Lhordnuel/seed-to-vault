@@ -283,8 +283,9 @@ async function sendPitchEmail(opts: {
   subject: string;
   body: string;
   companyName?: string;
+  audience?: "hiring" | "vc";
 }): Promise<{ sent: boolean; to: string; subject: string; companyName?: string; replyTo?: string; resendId?: string; error?: string }> {
-  const { to, subject, body, companyName } = opts;
+  const { to, subject, body, companyName, audience = "hiring" } = opts;
   if (isGenericEmail(to)) {
     return {
       sent: false,
@@ -305,29 +306,57 @@ async function sendPitchEmail(opts: {
   try {
     const esc = (s: string) =>
       s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const blocks = body
-      .split(/\n\n+/)
-      .map((block) => {
-        const lines = block.split(/\n/).map((l) => l.trim()).filter(Boolean);
-        const isList = lines.length > 1 && lines.every((l) => /^[-•*]\s+/.test(l));
-        if (isList) {
-          const items = lines
-            .map(
-              (l) =>
-                `<li style="margin:0 0 10px;line-height:1.55;color:#e8e6e1;font-size:15px;">${esc(
-                  l.replace(/^[-•*]\s+/, ""),
-                )}</li>`,
-            )
-            .join("");
-          return `<ul style="margin:0 0 18px;padding-left:20px;">${items}</ul>`;
-        }
-        return `<p style="margin:0 0 16px;line-height:1.65;color:#e8e6e1;font-size:15px;">${esc(
-          block,
-        ).replace(/\n/g, "<br/>")}</p>`;
-      })
-      .join("");
-    const headline = "The hiring infrastructure for growing teams";
-    const html = `<!doctype html><html><body style="margin:0;padding:0;background:#0f0f10;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+
+    let html: string;
+
+    if (audience === "vc") {
+      // Clean, plain founder-to-investor email. No marketing chrome.
+      // Render every paragraph as plain text; preserve line breaks as <br/>.
+      const vcBlocks = body
+        .split(/\n\n+/)
+        .map(
+          (block) =>
+            `<p style="margin:0 0 16px;line-height:1.6;color:#111111;font-size:15px;">${esc(
+              block,
+            ).replace(/\n/g, "<br/>")}</p>`,
+        )
+        .join("");
+      html = `<!doctype html><html><body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#111111;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;">
+    <tr><td align="left">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+        <tr><td style="padding:32px 28px 24px;">
+          ${vcBlocks}
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+    } else {
+      // Hiring template — branded layout
+      const blocks = body
+        .split(/\n\n+/)
+        .map((block) => {
+          const lines = block.split(/\n/).map((l) => l.trim()).filter(Boolean);
+          const isList = lines.length > 1 && lines.every((l) => /^[-•*]\s+/.test(l));
+          if (isList) {
+            const items = lines
+              .map(
+                (l) =>
+                  `<li style="margin:0 0 10px;line-height:1.55;color:#e8e6e1;font-size:15px;">${esc(
+                    l.replace(/^[-•*]\s+/, ""),
+                  )}</li>`,
+              )
+              .join("");
+            return `<ul style="margin:0 0 18px;padding-left:20px;">${items}</ul>`;
+          }
+          return `<p style="margin:0 0 16px;line-height:1.65;color:#e8e6e1;font-size:15px;">${esc(
+            block,
+          ).replace(/\n/g, "<br/>")}</p>`;
+        })
+        .join("");
+      const headline = "The hiring infrastructure for growing teams";
+      html = `<!doctype html><html><body style="margin:0;padding:0;background:#0f0f10;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f10;padding:0;">
     <tr><td align="center">
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
@@ -354,6 +383,7 @@ async function sendPitchEmail(opts: {
     </td></tr>
   </table>
 </body></html>`;
+    }
 
     const res = await fetch("https://connector-gateway.lovable.dev/resend/emails", {
       method: "POST",
