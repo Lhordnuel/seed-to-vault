@@ -103,8 +103,33 @@ Founder, Vaultio
 ---
 
 ================================================================
-PERSONALIZATION RULE (NON-NEGOTIABLE — applies to EVERY email):
-Cold-pitch reply we received: "Focus on tailoring positioning to my business/industry/pains + have an element of personalisation that shows you researched me." Treat this as a hard rule.
+TEMPLATE C — VC / INVESTOR. Fill [Name], [Firm], [PortfolioCo or Thesis Reference]:
+---
+Subject: Vaultio — [one-line positioning, e.g. "remote hiring infrastructure, pre-seed"]
+
+Hi [Name],
+
+I'm Emmanuel, 19, building Vaultio out of Nigeria. [One specific, researched sentence about the recipient or firm — a portfolio company they led, a thesis post they wrote, a recent investment — and why it makes them the right fit for Vaultio.]
+
+Vaultio is the only platform where the complete remote hiring workflow happens in one place. Post a job, distribute to 6 platforms automatically, rank candidates with AI, run assessments + interviews in a built-in workspace, and pay instantly via crypto escrow. One platform, one price — replacing five disconnected tools.
+
+Where we are: 300+ talent profiles across Africa, MENA and LatAm. 4 companies signed up, jobs being posted. Pre-revenue, 32 days post-launch. Built entirely solo during university.
+
+Why now: I'm not asking you to bet on metrics. I'm asking you to look at what's been built in 6 months by one person at 19 with no funding, and consider whether that execution speed changes what the metrics will look like in 60 days. I'll have $5K MRR to report against by end of July — happy to connect now or then, whichever fits your stage criteria.
+
+Emmanuel Nwachinemelu
+Founder, Vaultio
+nuel@vaultio.tech · linkedin.com/in/emmanuel-nwachinemelu-a22748356
+---
+
+VC EMAIL RULES (non-negotiable for Template C):
+- Plain, founder-to-investor tone. No marketing language. No "Learn more" CTA. No bullet-point feature lists styled like a brochure.
+- Keep it short: ~150–220 words. Subject line is one clean line: "Vaultio — [positioning]" or "[Firm] × Vaultio — [angle]".
+- The personalized sentence MUST cite a real portfolio company they led/co-led, a thesis post, a tweet, or a recent investment. Never fabricate — if you can't find one, scrape more before drafting.
+- Sign with full name + email + LinkedIn. No company tagline footer.
+- Send with audience="vc" so the email renders in the clean investor format (no purple header, no big headline, no CTA button).
+
+
 
 Before drafting ANY pitch you MUST gather person- AND company-specific research:
 - Scrape the company site (\`scrape_company\`) for what they ACTUALLY do, their ICP, recent product/launch, tone.
