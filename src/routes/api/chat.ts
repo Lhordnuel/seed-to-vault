@@ -1139,7 +1139,7 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
           }),
           send_pitch: tool({
             description:
-              "Send a SINGLE pitch email via Resend. From: nuel@founder.vaultio.tech. Reply-To: nuel@vaultio.tech. Use bulk_send_pitch for multiple recipients.",
+              "Send a SINGLE pitch email via Resend. From: nuel@founder.vaultio.tech. Reply-To: nuel@vaultio.tech. Pass audience='vc' for investor outreach (renders a clean plain-text-style email — no marketing chrome, no CTA button). Default audience='hiring' uses the branded Vaultio layout. Use bulk_send_pitch for multiple recipients.",
             inputSchema: z.object({
               to: z.string().email().describe("Recipient email address"),
               subject: z.string().min(1).max(200),
@@ -1148,9 +1148,13 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
                 .min(1)
                 .describe("Plain-text email body. Line breaks preserved."),
               companyName: z.string().optional(),
+              audience: z
+                .enum(["hiring", "vc"])
+                .default("hiring")
+                .describe("'vc' = clean investor email design; 'hiring' = branded Vaultio layout"),
             }),
-            execute: async ({ to, subject, body, companyName }) => {
-              return sendPitchEmail({ to, subject, body, companyName });
+            execute: async ({ to, subject, body, companyName, audience }) => {
+              return sendPitchEmail({ to, subject, body, companyName, audience });
             },
           }),
           bulk_send_pitch: tool({
