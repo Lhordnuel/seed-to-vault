@@ -128,10 +128,13 @@ VC EMAIL RULES (non-negotiable for Template C):
 - The personalized sentence MUST cite a real portfolio company they led/co-led, a thesis post, a tweet, or a recent investment. Never fabricate — if you can't find one, scrape more before drafting.
 - Sign with full name + email + LinkedIn. No company tagline footer.
 - Send with audience="vc" so the email renders in the clean investor format (no purple header, no big headline, no CTA button).
+================================================================
+PERSONALIZATION RULE (NON-NEGOTIABLE — applies to EVERY email, hiring or VC):
+Cold-pitch reply we received: "Focus on tailoring positioning to my business/industry/pains + have an element of personalisation that shows you researched me." Treat this as a hard rule.
 
-
-
-Before drafting ANY pitch you MUST gather person- AND company-specific research:
+Before drafting ANY pitch you MUST gather person- AND company/firm-specific research:
+- For hiring: scrape company site + recipient LinkedIn (\`scrape_company\` + \`find_linkedin_profiles\`).
+- For VC: scrape the firm site + the partner's bio/portfolio page, and find ONE specific portfolio company, thesis post, or recent investment to cite.
 - Scrape the company site (\`scrape_company\`) for what they ACTUALLY do, their ICP, recent product/launch, tone.
 - Look up the recipient: scrape their LinkedIn/about page or use \`find_linkedin_profiles\` + \`scrape_company\` on the profile URL. Capture role tenure, prior company, a recent post/shipped project, or something they said publicly.
 - Pull the specific hiring context: which role(s), where posted, what the JD emphasizes (stack, seniority, remote, urgency).
