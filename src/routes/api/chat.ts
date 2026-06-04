@@ -37,7 +37,7 @@ const SOURCE_DOMAINS: Record<string, string> = {
 
 const SYSTEM_PROMPT = `You are Startup Scout, an AI sales-development agent for Emmanuel (Nuel) at Vaultio.
 
-Your job: find startups that are ACTIVELY HIRING (seed–Series B, 1–200 employees), draft a size-appropriate pitch, and send it via email.
+Your job: (1) find startups that are ACTIVELY HIRING (seed–Series B, 1–200 employees) and pitch Vaultio, OR (2) find VENTURE INVESTORS (VC firms, partners, scouts, angels) relevant to Vaultio's stage/thesis and send a clean, professional founder-to-investor outreach.
 
 Sender identity: emails go FROM "Emmanuel Nwachinemelu <nuel@founder.vaultio.tech>". Reply-To routes to nuel@vaultio.tech. Write in first person AS Emmanuel, Founder of Vaultio.
 
@@ -45,11 +45,14 @@ VAULTIO (what we pitch):
 Vaultio is an all-in-one hiring platform. Post once → auto-distributed to 6 platforms. AI ranks applicants by fit, auto-assessments validate them before interview, built-in scheduler + video interview removes Zoom/Calendly hunting. Outcome: 15–20 qualified applicants in 48 hours; ~5–8 hrs/hire → ~30 min.
 Differentiator: Vaultio Talents work inside Vaultio Studio — a workspace with AI assistant, code editor, writing tools, portfolio builder. You hire seeing live projects + AI-verified skills, not just resumes.
 
+Traction snapshot (use selectively in VC emails): 300+ talent profiles across Africa, MENA and LatAm. 4 companies signed up, jobs being posted. Pre-revenue, ~32 days post-launch. Built solo by a 19-year-old founder out of Nigeria during university. Targeting $5K MRR by end of July.
+
 ================================================================
 AUDIENCE ROUTING (CHOOSE ONE before drafting):
-- TEMPLATE A — Early stage (1–50 employees, no dedicated HR/recruiter, founder-led hiring). Recipient: CEO/Founder/CTO. Use the narrative "Deel-style" pitch below.
-- TEMPLATE B — Scaling teams (51–200 employees WITH HR/People/Talent function). Recipient: Head of People, Head of Talent, HR Manager, Talent Acquisition Lead, Recruiter. Use the concise "operator" pitch below.
-If unsure which bucket a company falls in, infer from employee count + whether Apollo/site shows a People/Talent/HR title. Default to A when ambiguous and size ≤ 50; default to B when ambiguous and size ≥ 51.
+- TEMPLATE A — Early stage hiring (1–50 employees, no dedicated HR/recruiter, founder-led hiring). Recipient: CEO/Founder/CTO. Use the narrative "Deel-style" pitch below.
+- TEMPLATE B — Scaling teams hiring (51–200 employees WITH HR/People/Talent function). Recipient: Head of People, Head of Talent, HR Manager, Talent Acquisition Lead, Recruiter. Use the concise "operator" pitch below.
+- TEMPLATE C — VC / Investor outreach. Recipient: GP, Partner, Principal, Investor, Scout, Angel at a VC firm. Use the clean founder-to-investor format below. NEVER use the hiring templates for investors.
+If unsure: hiring company → A or B by size. Investor/VC firm → C. When sending, set audience="vc" for Template C and audience="hiring" otherwise — this controls the email design (VC sends a clean, plain, no-marketing-chrome email).
 
 ================================================================
 TEMPLATE A — EARLY STAGE (1–50, founder-led). Fill [Name], [Role], [Company], [Platform]:
@@ -100,10 +103,38 @@ Founder, Vaultio
 ---
 
 ================================================================
-PERSONALIZATION RULE (NON-NEGOTIABLE — applies to EVERY email):
+TEMPLATE C — VC / INVESTOR. Fill [Name], [Firm], [PortfolioCo or Thesis Reference]:
+---
+Subject: Vaultio — [one-line positioning, e.g. "remote hiring infrastructure, pre-seed"]
+
+Hi [Name],
+
+I'm Emmanuel, 19, building Vaultio out of Nigeria. [One specific, researched sentence about the recipient or firm — a portfolio company they led, a thesis post they wrote, a recent investment — and why it makes them the right fit for Vaultio.]
+
+Vaultio is the only platform where the complete remote hiring workflow happens in one place. Post a job, distribute to 6 platforms automatically, rank candidates with AI, run assessments + interviews in a built-in workspace, and pay instantly via crypto escrow. One platform, one price — replacing five disconnected tools.
+
+Where we are: 300+ talent profiles across Africa, MENA and LatAm. 4 companies signed up, jobs being posted. Pre-revenue, 32 days post-launch. Built entirely solo during university.
+
+Why now: I'm not asking you to bet on metrics. I'm asking you to look at what's been built in 6 months by one person at 19 with no funding, and consider whether that execution speed changes what the metrics will look like in 60 days. I'll have $5K MRR to report against by end of July — happy to connect now or then, whichever fits your stage criteria.
+
+Emmanuel Nwachinemelu
+Founder, Vaultio
+nuel@vaultio.tech · linkedin.com/in/emmanuel-nwachinemelu-a22748356
+---
+
+VC EMAIL RULES (non-negotiable for Template C):
+- Plain, founder-to-investor tone. No marketing language. No "Learn more" CTA. No bullet-point feature lists styled like a brochure.
+- Keep it short: ~150–220 words. Subject line is one clean line: "Vaultio — [positioning]" or "[Firm] × Vaultio — [angle]".
+- The personalized sentence MUST cite a real portfolio company they led/co-led, a thesis post, a tweet, or a recent investment. Never fabricate — if you can't find one, scrape more before drafting.
+- Sign with full name + email + LinkedIn. No company tagline footer.
+- Send with audience="vc" so the email renders in the clean investor format (no purple header, no big headline, no CTA button).
+================================================================
+PERSONALIZATION RULE (NON-NEGOTIABLE — applies to EVERY email, hiring or VC):
 Cold-pitch reply we received: "Focus on tailoring positioning to my business/industry/pains + have an element of personalisation that shows you researched me." Treat this as a hard rule.
 
-Before drafting ANY pitch you MUST gather person- AND company-specific research:
+Before drafting ANY pitch you MUST gather person- AND company/firm-specific research:
+- For hiring: scrape company site + recipient LinkedIn (\`scrape_company\` + \`find_linkedin_profiles\`).
+- For VC: scrape the firm site + the partner's bio/portfolio page, and find ONE specific portfolio company, thesis post, or recent investment to cite.
 - Scrape the company site (\`scrape_company\`) for what they ACTUALLY do, their ICP, recent product/launch, tone.
 - Look up the recipient: scrape their LinkedIn/about page or use \`find_linkedin_profiles\` + \`scrape_company\` on the profile URL. Capture role tenure, prior company, a recent post/shipped project, or something they said publicly.
 - Pull the specific hiring context: which role(s), where posted, what the JD emphasizes (stack, seniority, remote, urgency).
@@ -130,8 +161,8 @@ How to work:
 3. RESEARCH PASS (MANDATORY before draft_pitch): for each recipient, run \`scrape_company\` on the company site AND on the recipient's LinkedIn/about page. Record 2–3 specific facts (recent launch, vertical, JD specifics, recipient background) and the industry pain you'll lead with.
 4. Filter: seed–Series B, 1–200 people. Tag each lead [A] or [B].
 5. Present results as a numbered list: company, 1-line description, stage/size, [A/B], roles, contact (or LinkedIn fallback), source URL, AND the research bullets you'll personalize on.
-6. \`draft_pitch\` using the correct template — but rewrite opener + value paragraph using the research. Show draft + recipients for approval unless user said "send it".
-7. SINGLE → \`send_pitch\`. MULTIPLE → \`bulk_send_pitch\` ONCE (rate-limited, dedupes). Each body MUST be unique and personalized.
+6. \`draft_pitch\` using the correct template (A/B for hiring, or compose a Template C body directly for VCs) — rewrite opener + value paragraph using the research. Show draft + recipients for approval unless user said "send it".
+7. SINGLE → \`send_pitch\` (pass audience="vc" for investors, otherwise audience="hiring" or omit). MULTIPLE → \`bulk_send_pitch\` ONCE (rate-limited, dedupes; pass audience="vc" for an investor batch). Each body MUST be unique and personalized.
 8. NEVER send without a recipient email. NEVER send to generic / role-based inboxes (info@, hello@, contact@, sales@, support@, admin@, jobs@, careers@, hr@, talent@, recruiting@, team@, etc.). Use only a named person's work email; otherwise fall back to LinkedIn.
 9. NEVER loop \`send_pitch\` for batches. NEVER reuse the same body across recipients.
 10. ANTI-REUSE ENFORCEMENT (server-side): the send tools reject any email whose subject, opening sentence, or 5-word body shingles overlap too much with a previously sent email this session. Keep the CORE Vaultio positioning consistent (post-once distribution, AI ranking, auto-assessments, Studio, 30-min/hire outcome) but vary per recipient: (a) different subject hook tied to recipientResearch/companyResearch, (b) different opening sentence built from a different researched fact, (c) different body structure — alternate bullets vs prose, reorder value paragraphs, swap which pain you lead with based on vertical. If a send is rejected for reuse, rewrite those three elements and retry — do NOT just tweak one word.
@@ -252,8 +283,9 @@ async function sendPitchEmail(opts: {
   subject: string;
   body: string;
   companyName?: string;
+  audience?: "hiring" | "vc";
 }): Promise<{ sent: boolean; to: string; subject: string; companyName?: string; replyTo?: string; resendId?: string; error?: string }> {
-  const { to, subject, body, companyName } = opts;
+  const { to, subject, body, companyName, audience = "hiring" } = opts;
   if (isGenericEmail(to)) {
     return {
       sent: false,
@@ -274,29 +306,57 @@ async function sendPitchEmail(opts: {
   try {
     const esc = (s: string) =>
       s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const blocks = body
-      .split(/\n\n+/)
-      .map((block) => {
-        const lines = block.split(/\n/).map((l) => l.trim()).filter(Boolean);
-        const isList = lines.length > 1 && lines.every((l) => /^[-•*]\s+/.test(l));
-        if (isList) {
-          const items = lines
-            .map(
-              (l) =>
-                `<li style="margin:0 0 10px;line-height:1.55;color:#e8e6e1;font-size:15px;">${esc(
-                  l.replace(/^[-•*]\s+/, ""),
-                )}</li>`,
-            )
-            .join("");
-          return `<ul style="margin:0 0 18px;padding-left:20px;">${items}</ul>`;
-        }
-        return `<p style="margin:0 0 16px;line-height:1.65;color:#e8e6e1;font-size:15px;">${esc(
-          block,
-        ).replace(/\n/g, "<br/>")}</p>`;
-      })
-      .join("");
-    const headline = "The hiring infrastructure for growing teams";
-    const html = `<!doctype html><html><body style="margin:0;padding:0;background:#0f0f10;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+
+    let html: string;
+
+    if (audience === "vc") {
+      // Clean, plain founder-to-investor email. No marketing chrome.
+      // Render every paragraph as plain text; preserve line breaks as <br/>.
+      const vcBlocks = body
+        .split(/\n\n+/)
+        .map(
+          (block) =>
+            `<p style="margin:0 0 16px;line-height:1.6;color:#111111;font-size:15px;">${esc(
+              block,
+            ).replace(/\n/g, "<br/>")}</p>`,
+        )
+        .join("");
+      html = `<!doctype html><html><body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#111111;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;">
+    <tr><td align="left">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+        <tr><td style="padding:32px 28px 24px;">
+          ${vcBlocks}
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+    } else {
+      // Hiring template — branded layout
+      const blocks = body
+        .split(/\n\n+/)
+        .map((block) => {
+          const lines = block.split(/\n/).map((l) => l.trim()).filter(Boolean);
+          const isList = lines.length > 1 && lines.every((l) => /^[-•*]\s+/.test(l));
+          if (isList) {
+            const items = lines
+              .map(
+                (l) =>
+                  `<li style="margin:0 0 10px;line-height:1.55;color:#e8e6e1;font-size:15px;">${esc(
+                    l.replace(/^[-•*]\s+/, ""),
+                  )}</li>`,
+              )
+              .join("");
+            return `<ul style="margin:0 0 18px;padding-left:20px;">${items}</ul>`;
+          }
+          return `<p style="margin:0 0 16px;line-height:1.65;color:#e8e6e1;font-size:15px;">${esc(
+            block,
+          ).replace(/\n/g, "<br/>")}</p>`;
+        })
+        .join("");
+      const headline = "The hiring infrastructure for growing teams";
+      html = `<!doctype html><html><body style="margin:0;padding:0;background:#0f0f10;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f10;padding:0;">
     <tr><td align="center">
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
@@ -323,6 +383,7 @@ async function sendPitchEmail(opts: {
     </td></tr>
   </table>
 </body></html>`;
+    }
 
     const res = await fetch("https://connector-gateway.lovable.dev/resend/emails", {
       method: "POST",
@@ -1078,7 +1139,7 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
           }),
           send_pitch: tool({
             description:
-              "Send a SINGLE pitch email via Resend. From: nuel@founder.vaultio.tech. Reply-To: nuel@vaultio.tech. Use bulk_send_pitch for multiple recipients.",
+              "Send a SINGLE pitch email via Resend. From: nuel@founder.vaultio.tech. Reply-To: nuel@vaultio.tech. Pass audience='vc' for investor outreach (renders a clean plain-text-style email — no marketing chrome, no CTA button). Default audience='hiring' uses the branded Vaultio layout. Use bulk_send_pitch for multiple recipients.",
             inputSchema: z.object({
               to: z.string().email().describe("Recipient email address"),
               subject: z.string().min(1).max(200),
@@ -1087,14 +1148,18 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
                 .min(1)
                 .describe("Plain-text email body. Line breaks preserved."),
               companyName: z.string().optional(),
+              audience: z
+                .enum(["hiring", "vc"])
+                .default("hiring")
+                .describe("'vc' = clean investor email design; 'hiring' = branded Vaultio layout"),
             }),
-            execute: async ({ to, subject, body, companyName }) => {
-              return sendPitchEmail({ to, subject, body, companyName });
+            execute: async ({ to, subject, body, companyName, audience }) => {
+              return sendPitchEmail({ to, subject, body, companyName, audience });
             },
           }),
           bulk_send_pitch: tool({
             description:
-              "Send pitches to MULTIPLE recipients in one call. Rate-limits to ~1 email per 1.2s (Resend safe), dedupes against emails already sent in this server session, and returns a summary {sent, skippedDuplicates, failed}. Each recipient gets their own subject + body so you can personalize.",
+              "Send pitches to MULTIPLE recipients in one call. Rate-limits to ~1 email per 1.2s (Resend safe), dedupes against emails already sent in this server session, and returns a summary {sent, skippedDuplicates, failed}. Each recipient gets their own subject + body so you can personalize. Pass audience='vc' for an investor batch (clean design); default 'hiring' uses the branded layout.",
             inputSchema: z.object({
               recipients: z
                 .array(
@@ -1113,8 +1178,12 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
                 .max(10000)
                 .default(1200)
                 .describe("Delay between sends in ms (default 1200)"),
+              audience: z
+                .enum(["hiring", "vc"])
+                .default("hiring")
+                .describe("Applies to every recipient in the batch."),
             }),
-            execute: async ({ recipients, delayMs }) => {
+            execute: async ({ recipients, delayMs, audience }) => {
               const sent: Array<{ to: string; subject: string; resendId?: string; companyName?: string }> = [];
               const skippedDuplicates: string[] = [];
               const skippedInBatch: string[] = [];
@@ -1139,6 +1208,7 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
                   subject: r.subject,
                   body: r.body,
                   companyName: r.companyName,
+                  audience,
                 });
                 if (result.sent) {
                   sentEmailsThisSession.add(email);
