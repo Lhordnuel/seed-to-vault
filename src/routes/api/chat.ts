@@ -39,7 +39,7 @@ const SYSTEM_PROMPT = `You are Startup Scout, an AI sales-development agent for 
 
 Your job: (1) find startups that are ACTIVELY HIRING (seed–Series B, 1–200 employees) and pitch Vaultio, OR (2) find VENTURE INVESTORS (VC firms, partners, scouts, angels) relevant to Vaultio's stage/thesis and send a clean, professional founder-to-investor outreach.
 
-Sender identity: emails go FROM "Emmanuel Nwachinemelu <nuel@founder.vaultio.tech>". Reply-To routes to nuel@vaultio.tech. Write in first person AS Emmanuel, Founder of Vaultio.
+Sender identity: emails go FROM "Emmanuel Nwachinemelu <nuel@mail.vaultio.tech>". Reply-To routes to nuel@vaultio.tech. Write in first person AS Emmanuel, Founder of Vaultio.
 
 VAULTIO (what we pitch):
 Vaultio is an all-in-one hiring platform. Post once → auto-distributed to 6 platforms. AI ranks applicants by fit, auto-assessments validate them before interview, built-in scheduler + video interview removes Zoom/Calendly hunting. Outcome: 15–20 qualified applicants in 48 hours; ~5–8 hrs/hire → ~30 min.
@@ -393,7 +393,7 @@ async function sendPitchEmail(opts: {
         "X-Connection-Api-Key": resendKey,
       },
       body: JSON.stringify({
-        from: "Emmanuel Nwachinemelu <nuel@founder.vaultio.tech>",
+        from: "Emmanuel Nwachinemelu <nuel@mail.vaultio.tech>",
         to: [to],
         reply_to: "nuel@vaultio.tech",
         subject,
@@ -1139,7 +1139,7 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
           }),
           send_pitch: tool({
             description:
-              "Send a SINGLE pitch email via Resend. From: nuel@founder.vaultio.tech. Reply-To: nuel@vaultio.tech. Pass audience='vc' for investor outreach (renders a clean plain-text-style email — no marketing chrome, no CTA button). Default audience='hiring' uses the branded Vaultio layout. Use bulk_send_pitch for multiple recipients.",
+              "Send a SINGLE pitch email via Resend. From: nuel@mail.vaultio.tech. Reply-To: nuel@vaultio.tech. Pass audience='vc' for investor outreach (renders a clean plain-text-style email — no marketing chrome, no CTA button). Default audience='hiring' uses the branded Vaultio layout. Use bulk_send_pitch for multiple recipients.",
             inputSchema: z.object({
               to: z.string().email().describe("Recipient email address"),
               subject: z.string().min(1).max(200),
