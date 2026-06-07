@@ -1,4 +1,5 @@
 import type { UIMessage } from "ai";
+import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
@@ -471,10 +472,66 @@ export function ActivityPanel({
   );
 }
 
+function exportLeadsCsv(leads: Lead[]) {
+  const header = ["name", "email", "role", "company", "domain", "source", "status", "created_at", "contacted_at", "last_subject"];
+  const esc = (v: unknown) => {
+    const s = v == null ? "" : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const rows = leads.map((l) => [
+    l.name ?? "",
+    l.email,
+    l.role ?? "",
+    l.companyName ?? "",
+    l.domain ?? "",
+    l.source ?? "",
+    l.status,
+    l.createdAt ? new Date(l.createdAt).toISOString() : "",
+    l.contactedAt ? new Date(l.contactedAt).toISOString() : "",
+    l.lastSubject ?? "",
+  ]);
+  const csv = [header, ...rows].map((r) => r.map(esc).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `vaultio-contacts-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 function ContactsSheet({ leads }: { leads: Lead[] }) {
+  const contactedOnly = leads.filter((l) => l.status === "contacted" || l.status === "replied");
   return (
     <div>
       <ImportLeads />
+      <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
+        <span className="text-[11px] text-muted-foreground">
+          {leads.length} contact{leads.length === 1 ? "" : "s"}
+        </span>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={leads.length === 0}
+            onClick={() => exportLeadsCsv(leads)}
+          >
+            Export CSV
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            disabled={contactedOnly.length === 0}
+            onClick={() => exportLeadsCsv(contactedOnly)}
+          >
+            Contacted only
+          </Button>
+        </div>
+      </div>
       {leads.length === 0 ? (
         <div className="px-4 py-6 text-xs text-muted-foreground">
           No contacts yet. Import a CSV/list above, or let the bot extract
