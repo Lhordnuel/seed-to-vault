@@ -1,4 +1,5 @@
 import type { UIMessage } from "ai";
+import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
