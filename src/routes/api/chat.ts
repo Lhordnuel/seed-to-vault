@@ -1238,6 +1238,88 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
               };
             },
           }),
+          draft_generic_email: tool({
+            description:
+              "Prepare a free-form (non-pitch) email draft for Nuel's review. Use for follow-ups, intros, replies, personal notes, applications, thank-yous, investor follow-ups — anything that isn't a hiring/VC cold pitch. This tool does NOT send. Always call this first, then wait for Nuel's explicit approval (e.g. 'send it') before calling send_generic_email.",
+            inputSchema: z.object({
+              to: z.string().email(),
+              subject: z.string().min(1).max(200),
+              body: z.string().min(1).describe("Plain-text body. Line breaks preserved."),
+              cc: z.array(z.string().email()).optional(),
+              replyTo: z.string().email().optional(),
+              fromName: z.string().optional().describe("Display name override; defaults to 'Emmanuel Nwachinemelu'"),
+            }),
+            execute: async (input) => {
+              return {
+                ...input,
+                status: "draft",
+                instruction:
+                  "Show this draft to Nuel and ask for explicit approval before calling send_generic_email. Do not send until he says 'send it' (or equivalent).",
+              };
+            },
+          }),
+          send_generic_email: tool({
+            description:
+              "Send a free-form email via Resend. ONLY call this after Nuel has explicitly approved the draft from draft_generic_email (e.g. 'send it', 'approve', 'yes send'). Skips pitch templates, anti-reuse, and generic-inbox checks. Renders a clean plain-text-style email. From: nuel@mail.vaultio.tech. Reply-To defaults to nuel@vaultio.tech.",
+            inputSchema: z.object({
+              to: z.string().email(),
+              subject: z.string().min(1).max(200),
+              body: z.string().min(1),
+              cc: z.array(z.string().email()).optional(),
+              replyTo: z.string().email().optional(),
+              fromName: z.string().optional(),
+              approved: z
+                .boolean()
+                .describe("Must be true. Set only after Nuel explicitly approved the draft in chat."),
+            }),
+            execute: async ({ to, subject, body, cc, replyTo, fromName, approved }) => {
+              if (!approved) {
+                return { sent: false, error: "Approval required. Show the draft and wait for Nuel to say 'send it'." };
+              }
+              const resendKey = process.env.RESEND_API_KEY;
+              const lovableKey = process.env.LOVABLE_API_KEY;
+              if (!resendKey || !lovableKey) {
+                return { sent: false, error: "Email service not configured." };
+              }
+              const esc = (s: string) =>
+                s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+              const blocks = body
+                .split(/\n\n+/)
+                .map(
+                  (block) =>
+                    `<p style="margin:0 0 16px;line-height:1.6;color:#111;font-size:15px;">${esc(block).replace(/\n/g, "<br/>")}</p>`,
+                )
+                .join("");
+              const html = `<!doctype html><html><body style="margin:0;padding:0;background:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#111;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="left"><table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;"><tr><td style="padding:24px 24px 24px;">${blocks}</td></tr></table></td></tr></table></body></html>`;
+              const ccList = cc && cc.length ? cc : ["hello@vaultio.tech"];
+              try {
+                const res = await fetch("https://connector-gateway.lovable.dev/resend/emails", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${lovableKey}`,
+                    "X-Connection-Api-Key": resendKey,
+                  },
+                  body: JSON.stringify({
+                    from: `${fromName ?? "Emmanuel Nwachinemelu"} <nuel@mail.vaultio.tech>`,
+                    to: [to],
+                    cc: ccList,
+                    reply_to: replyTo ?? "nuel@vaultio.tech",
+                    subject,
+                    text: body,
+                    html,
+                  }),
+                });
+                const data = (await res.json().catch(() => ({}))) as { id?: string };
+                if (!res.ok) {
+                  return { sent: false, to, subject, error: `Resend ${res.status}: ${JSON.stringify(data)}` };
+                }
+                return { sent: true, to, cc: ccList, subject, resendId: data?.id };
+              } catch (e) {
+                return { sent: false, to, subject, error: (e as Error).message };
+              }
+            },
+          }),
         };
 
         const model = withFallback(
