@@ -2,33 +2,58 @@
 // Docs: https://developer.tomba.io
 const BASE = "https://api.tomba.io/v1";
 
-function keys() {
-  const k = process.env.TOMBA_API_KEY;
-  const s = process.env.TOMBA_SECRET_KEY;
-  if (!k || !s) throw new Error("TOMBA_API_KEY / TOMBA_SECRET_KEY not configured.");
-  return { k, s };
+type KeyPair = { k: string; s: string; label: string };
+
+function keyPairs(): KeyPair[] {
+  const pairs: KeyPair[] = [];
+  const k1 = process.env.TOMBA_API_KEY;
+  const s1 = process.env.TOMBA_SECRET_KEY;
+  if (k1 && s1) pairs.push({ k: k1, s: s1, label: "primary" });
+  const k2 = process.env.TOMBA_API_KEY_2;
+  const s2 = process.env.TOMBA_SECRET_KEY_2;
+  if (k2 && s2) pairs.push({ k: k2, s: s2, label: "fallback" });
+  if (!pairs.length) throw new Error("TOMBA_API_KEY / TOMBA_SECRET_KEY not configured.");
+  return pairs;
 }
 
 function cleanDomain(d: string) {
   return d.replace(/^https?:\/\//i, "").replace(/^www\./i, "").split("/")[0];
 }
 
+// Status codes worth retrying on the fallback key (quota / auth / rate limit).
+const FALLBACK_STATUSES = new Set([401, 402, 403, 408, 429, 451, 500, 502, 503, 504]);
+
 async function get(path: string, params: Record<string, string | number | undefined>) {
-  const { k, s } = keys();
   const url = new URL(`${BASE}${path}`);
   for (const [pk, pv] of Object.entries(params)) {
     if (pv !== undefined && pv !== "") url.searchParams.set(pk, String(pv));
   }
-  const res = await fetch(url.toString(), {
-    headers: { "X-Tomba-Key": k, "X-Tomba-Secret": s },
-  });
-  const text = await res.text();
-  let data: unknown;
-  try { data = JSON.parse(text); } catch { data = text; }
-  if (!res.ok) {
-    throw new Error(`Tomba ${path} ${res.status}: ${typeof data === "string" ? data : JSON.stringify(data)}`);
+  const pairs = keyPairs();
+  let lastErr: Error | null = null;
+  for (let i = 0; i < pairs.length; i++) {
+    const { k, s, label } = pairs[i];
+    try {
+      const res = await fetch(url.toString(), {
+        headers: { "X-Tomba-Key": k, "X-Tomba-Secret": s },
+      });
+      const text = await res.text();
+      let data: unknown;
+      try { data = JSON.parse(text); } catch { data = text; }
+      if (!res.ok) {
+        const err = new Error(`Tomba ${path} ${res.status} (${label}): ${typeof data === "string" ? data : JSON.stringify(data)}`);
+        if (i < pairs.length - 1 && FALLBACK_STATUSES.has(res.status)) {
+          lastErr = err;
+          continue;
+        }
+        throw err;
+      }
+      return data as Record<string, unknown>;
+    } catch (e) {
+      lastErr = e instanceof Error ? e : new Error(String(e));
+      if (i >= pairs.length - 1) throw lastErr;
+    }
   }
-  return data as Record<string, unknown>;
+  throw lastErr ?? new Error("Tomba request failed");
 }
 
 export async function tombaDomainSearch(opts: {
