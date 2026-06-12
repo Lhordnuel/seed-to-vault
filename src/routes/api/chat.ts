@@ -446,11 +446,11 @@ export const Route = createFileRoute("/api/chat")({
           }),
           apollo_find_contacts: tool({
             description:
-              "PRIMARY contact lookup via Apollo. Given a company domain, returns hiring, executive, or VC contacts with verified emails when available. Use mode='vc' for investor outreach, mode='hiring' for companies, or pass custom titles.",
+              "PRIMARY contact lookup via Apollo. Given a company domain, returns hiring or executive contacts with verified emails when available. Use mode='hiring' (default) for companies, or pass custom titles. Automatically retries without title filter if the first search returns nothing.",
             inputSchema: z.object({
               domain: z.string().describe("Company domain, e.g. 'acme.com'"),
               companyName: z.string().optional(),
-              mode: z.enum(["hiring", "vc", "executive"]).default("hiring"),
+              mode: z.enum(["hiring", "executive"]).default("hiring"),
               titles: z.array(z.string()).optional(),
               reveal: z
                 .boolean()
