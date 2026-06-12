@@ -23,30 +23,25 @@ async function post(path: string, body: Record<string, unknown>) {
   let lastErr: Error | null = null;
   for (let i = 0; i < ks.length; i++) {
     const { k, label } = ks[i];
-    try {
-      const res = await fetch(`${BASE}${path}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-KEY": k },
-        body: JSON.stringify(body),
-      });
-      const text = await res.text();
-      let data: unknown;
-      try { data = JSON.parse(text); } catch { data = text; }
-      const summary = summarizeProspeoResponse(data, text);
-      console.log(`[prospeo] ${path} ${res.status} (${label})`, JSON.stringify({ body: redactLargeBody(body), summary }));
-      if (!res.ok) {
-        const err = new Error(`Prospeo ${path} ${res.status} (${label}): ${typeof data === "string" ? data : JSON.stringify(data)}`);
-        if (i < ks.length - 1 && FALLBACK_STATUSES.has(res.status)) {
-          lastErr = err;
-          continue;
-        }
-        throw err;
+    const res = await fetch(`${BASE}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-KEY": k },
+      body: JSON.stringify(body),
+    });
+    const text = await res.text();
+    let data: unknown;
+    try { data = JSON.parse(text); } catch { data = text; }
+    const summary = summarizeProspeoResponse(data, text);
+    console.log(`[prospeo] ${path} ${res.status} (${label})`, JSON.stringify({ body: redactLargeBody(body), summary }));
+    if (!res.ok) {
+      const err = new Error(`Prospeo ${path} ${res.status} (${label}): ${typeof data === "string" ? data : JSON.stringify(data)}`);
+      if (i < ks.length - 1 && FALLBACK_STATUSES.has(res.status)) {
+        lastErr = err;
+        continue;
       }
-      return data as Record<string, unknown>;
-    } catch (e) {
-      lastErr = e instanceof Error ? e : new Error(String(e));
-      if (i >= ks.length - 1) throw lastErr;
+      throw err;
     }
+    return data as Record<string, unknown>;
   }
   throw lastErr ?? new Error("Prospeo request failed");
 }
@@ -147,8 +142,8 @@ export async function prospeoEmailFinder(opts: {
   });
   const contact = normalizeProspeoPerson(response, opts.domain);
   return {
-    email: contact.email,
-    verified: contact.emailStatus ? contact.emailStatus === "VERIFIED" : !!contact.email,
+    email: isWorkEmail(contact.email) ? contact.email : undefined,
+    verified: contact.emailStatus ? contact.emailStatus === "VERIFIED" && isWorkEmail(contact.email) : isWorkEmail(contact.email),
     firstName: opts.firstName,
     lastName: opts.lastName,
     domain: opts.domain,
