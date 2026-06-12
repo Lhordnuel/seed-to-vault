@@ -167,7 +167,8 @@ export async function prospeoDomainSearch(opts: { domain: string; limit?: number
         websites: { include: [domain] },
       },
       person_contact_details: {
-        email: "AVAILABLE",
+        email: ["VERIFIED"],
+        hide_people_with_details_already_revealed: false,
       },
       max_person_per_company: limit,
     },
