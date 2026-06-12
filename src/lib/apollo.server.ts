@@ -163,19 +163,41 @@ export async function apolloFindExecutives(opts: {
   perPage?: number;
 }) {
   const titles = contactTitles(opts.mode ?? "hiring", opts.titles);
-  const body: Record<string, unknown> = {
-    page: 1,
-    per_page: Math.min(opts.perPage ?? 10, 25),
-    person_titles: titles,
-  };
-  if (opts.domain) {
-    const clean = opts.domain.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
-    body.q_organization_domains_list = [clean];
-  }
-  if (opts.organizationName) body.q_organization_name = opts.organizationName;
+  const perPage = Math.min(opts.perPage ?? 10, 25);
+  const clean = opts.domain
+    ? opts.domain.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0]
+    : undefined;
 
-  const data = await post("/mixed_people/search", body);
-  const people = (data.people ?? data.contacts ?? []) as ApolloPerson[];
+  const baseBody = (): Record<string, unknown> => {
+    const b: Record<string, unknown> = { page: 1, per_page: perPage };
+    if (clean) {
+      // Apollo accepts both keys depending on endpoint version — send both.
+      b.q_organization_domains_list = [clean];
+      b.q_organization_domains = clean;
+    }
+    if (opts.organizationName) b.q_organization_name = opts.organizationName;
+    return b;
+  };
+
+  // Try 1: with title filter
+  const body1 = baseBody();
+  body1.person_titles = titles;
+  let data = await post("/mixed_people/search", body1);
+  let people = (data.people ?? data.contacts ?? []) as ApolloPerson[];
+
+  // Try 2: drop the title filter (Apollo title matching is strict — many
+  // companies have non-standard titles like "Talent Lead", "VP People Ops")
+  if (people.length === 0) {
+    data = await post("/mixed_people/search", baseBody());
+    people = (data.people ?? data.contacts ?? []) as ApolloPerson[];
+  }
+
+  // Try 3: org name only (some companies use parked domains in Apollo)
+  if (people.length === 0 && opts.organizationName && clean) {
+    const body3 = { page: 1, per_page: perPage, q_organization_name: opts.organizationName };
+    data = await post("/mixed_people/search", body3);
+    people = (data.people ?? data.contacts ?? []) as ApolloPerson[];
+  }
   return people;
 }
 
