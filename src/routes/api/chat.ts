@@ -474,20 +474,24 @@ export const Route = createFileRoute("/api/chat")({
           }),
           apollo_find_contacts: tool({
             description:
-              "PRIMARY executive contact lookup via Apollo. Given a company domain, returns CEO/Founder/CTO/COO with verified emails when available. Call this before find_executive_contacts.",
+              "PRIMARY contact lookup via Apollo. Given a company domain, returns hiring, executive, or VC contacts with verified emails when available. Use mode='vc' for investor outreach, mode='hiring' for companies, or pass custom titles.",
             inputSchema: z.object({
               domain: z.string().describe("Company domain, e.g. 'acme.com'"),
               companyName: z.string().optional(),
+              mode: z.enum(["hiring", "vc", "executive"]).default("hiring"),
+              titles: z.array(z.string()).optional(),
               reveal: z
                 .boolean()
                 .default(true)
                 .describe("Attempt to reveal/enrich emails (uses Apollo credits)"),
             }),
-            execute: async ({ domain, companyName, reveal }) => {
+            execute: async ({ domain, companyName, mode, titles, reveal }) => {
               try {
                 const people = await apolloFindExecutives({
                   domain,
                   organizationName: companyName,
+                  mode,
+                  titles,
                   perPage: 10,
                 });
                 let creditSummary: {
@@ -550,6 +554,8 @@ export const Route = createFileRoute("/api/chat")({
                 return {
                   companyName,
                   domain,
+                  mode,
+                  searchedTitles: titles,
                   apolloReveal: creditSummary,
                   contacts: enriched,
                   primaryContact: withEmail[0] ?? enriched[0] ?? null,
