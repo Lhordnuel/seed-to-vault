@@ -79,11 +79,23 @@ async function post(
   } catch {
     data = text;
   }
+  const summary =
+    data && typeof data === "object"
+      ? {
+          people: Array.isArray((data as any).people) ? (data as any).people.length : undefined,
+          contacts: Array.isArray((data as any).contacts) ? (data as any).contacts.length : undefined,
+          organizations: Array.isArray((data as any).organizations) ? (data as any).organizations.length : undefined,
+          pagination: (data as any).pagination,
+          error: (data as any).error ?? (data as any).message,
+        }
+      : { raw: String(text).slice(0, 200) };
+  console.log(`[apollo] ${path} ${res.status}`, JSON.stringify({ body, summary }));
   if (!res.ok) {
     throw new Error(`Apollo ${path} ${res.status}: ${typeof data === "string" ? data : JSON.stringify(data)}`);
   }
   return data as Record<string, unknown>;
 }
+
 
 export type ApolloOrg = {
   id?: string;
