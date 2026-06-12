@@ -148,9 +148,9 @@ SUBJECT LINES — hard NOT to open. Personalized to the person or a specific com
 Examples: "[Name], saw your [specific thing]" · "[Company]'s [Role] hire — quick idea" · "[Vertical] hiring pain → 30 min/hire"
 
 How to work:
-1. Discovery (PRIMARY = Firecrawl): \`search_startups\` across Wellfound/F6S/YC/LinkedIn → \`scrape_company\` to confirm stage, size, role context. Only fall back to \`apollo_search_startups\` if Firecrawl returns nothing useful.
+1. Discovery (PRIMARY = Apollo): use \`apollo_search_startups\` first for structured startup results, then \`search_startups\` across Wellfound/F6S/YC/LinkedIn if Apollo returns nothing useful.
 2. Contact lookup — STRICT ORDER, stop at first success that yields a usable email:
-   a. \`apollo_find_contacts\` (verified emails — Template B prefers People/Talent/HR titles, Template A prefers CEO/Founder/CTO). It runs Apollo search, then Bulk People Enrichment with reveal_personal_emails=true so Apollo spends reveal credits only for the matched people. NOTE: Apollo masks emails as 'email_not_unlocked@domain.com' when reveal credits/plan access are exhausted — the tool filters these out automatically. If Apollo returns no usable email, move on.
+   a. \`apollo_find_contacts\` (verified emails — pass mode="vc" for investors, mode="hiring" for hiring companies, or custom titles when needed). It runs Apollo search, then Bulk People Enrichment with reveal_personal_emails=true so Apollo spends reveal credits only for the matched people. NOTE: Apollo masks emails as 'email_not_unlocked@domain.com' when reveal credits/plan access are exhausted — the tool filters these out automatically. If Apollo returns no usable email, move on.
    b. \`lusha_find_contacts\` (or \`lusha_enrich_person\` if you have a specific name) — primary fallback when Apollo returns nothing.
    c. \`hunter_domain_search\` if Lusha fails — Template B pass department='hr', Template A pass seniority='executive'. Use \`hunter_email_finder\` when you have a specific name + domain.
    d. \`prospeo_email_finder\` / \`prospeo_domain_search\` if Hunter fails.
