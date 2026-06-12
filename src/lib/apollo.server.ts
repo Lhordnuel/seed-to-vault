@@ -170,7 +170,7 @@ export async function apolloFindExecutives(opts: {
   };
   if (opts.domain) {
     const clean = opts.domain.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
-    body.q_organization_domains = clean;
+    body.q_organization_domains_list = [clean];
   }
   if (opts.organizationName) body.q_organization_name = opts.organizationName;
 
