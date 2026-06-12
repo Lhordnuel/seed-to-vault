@@ -900,12 +900,14 @@ export const Route = createFileRoute("/api/chat")({
           }),
           prospeo_email_finder: tool({
             description:
-              "Prospeo email finder. Given first/last name + company domain (or company name), returns verified work email. Use after Hunter fails.",
+              "Prospeo person enrichment. Given first/last name + company domain/company name or LinkedIn URL, reveals a verified work email. Use after Hunter fails.",
             inputSchema: z.object({
               firstName: z.string(),
               lastName: z.string(),
               domain: z.string().optional(),
               company: z.string().optional(),
+              linkedinUrl: z.string().optional(),
+              personId: z.string().optional(),
             }),
             execute: async (input) => {
               try { return await prospeoEmailFinder(input); }
@@ -913,7 +915,7 @@ export const Route = createFileRoute("/api/chat")({
             },
           }),
           prospeo_domain_search: tool({
-            description: "Prospeo domain search — list emails associated with a company domain.",
+            description: "Prospeo company contact search — searches people at a company domain, then enriches each person to reveal verified work emails.",
             inputSchema: z.object({
               domain: z.string(),
               limit: z.number().min(1).max(100).default(20),
