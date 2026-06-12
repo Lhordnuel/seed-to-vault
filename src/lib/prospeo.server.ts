@@ -119,7 +119,8 @@ function normalizeProspeoPerson(input: unknown, domain?: string) {
 }
 
 function isWorkEmail(email?: string) {
-  return !!email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  if (!email || email.includes("*") || /masked|hidden|redacted/i.test(email)) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
 /** Find a person's email by first/last name + company domain. */
