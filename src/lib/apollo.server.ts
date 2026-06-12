@@ -1,5 +1,53 @@
 const APOLLO_BASE = "https://api.apollo.io/api/v1";
 
+export type ApolloContactMode = "hiring" | "vc" | "executive";
+
+const APOLLO_EXECUTIVE_TITLES = [
+  "ceo",
+  "chief executive officer",
+  "founder",
+  "co-founder",
+  "cofounder",
+  "cto",
+  "chief technology officer",
+  "coo",
+  "chief operating officer",
+  "head of engineering",
+  "vp engineering",
+];
+
+const APOLLO_HIRING_TITLES = [
+  "head of people",
+  "head of talent",
+  "talent acquisition",
+  "talent acquisition manager",
+  "recruiter",
+  "technical recruiter",
+  "hr manager",
+  "people operations",
+  "chief people officer",
+  ...APOLLO_EXECUTIVE_TITLES,
+];
+
+const APOLLO_VC_TITLES = [
+  "general partner",
+  "partner",
+  "managing partner",
+  "principal",
+  "investor",
+  "venture partner",
+  "scout",
+  "associate",
+  "investment associate",
+];
+
+function contactTitles(mode: ApolloContactMode, titles?: string[]) {
+  if (titles?.length) return titles;
+  if (mode === "vc") return APOLLO_VC_TITLES;
+  if (mode === "hiring") return APOLLO_HIRING_TITLES;
+  return APOLLO_EXECUTIVE_TITLES;
+}
+
 function key() {
   const k = process.env.APOLLO_API_KEY;
   if (!k) throw new Error("APOLLO_API_KEY is not configured.");
@@ -110,28 +158,19 @@ export async function apolloSearchOrganizations(opts: {
 export async function apolloFindExecutives(opts: {
   domain?: string;
   organizationName?: string;
+  mode?: ApolloContactMode;
+  titles?: string[];
   perPage?: number;
 }) {
+  const titles = contactTitles(opts.mode ?? "hiring", opts.titles);
   const body: Record<string, unknown> = {
     page: 1,
     per_page: Math.min(opts.perPage ?? 10, 25),
-    person_titles: [
-      "ceo",
-      "chief executive officer",
-      "founder",
-      "co-founder",
-      "cofounder",
-      "cto",
-      "chief technology officer",
-      "coo",
-      "chief operating officer",
-      "head of engineering",
-      "vp engineering",
-    ],
+    person_titles: titles,
   };
   if (opts.domain) {
     const clean = opts.domain.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
-    body.q_organization_domains_list = [clean];
+    body.q_organization_domains = clean;
   }
   if (opts.organizationName) body.q_organization_name = opts.organizationName;
 
