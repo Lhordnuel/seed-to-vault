@@ -1,29 +1,45 @@
 const HUNTER_BASE = "https://api.hunter.io/v2";
 
-function key() {
-  const k = process.env.HUNTER_API_KEY;
-  if (!k) throw new Error("HUNTER_API_KEY is not configured.");
-  return k;
+function keys(): string[] {
+  const ks = [process.env.HUNTER_API_KEY, process.env.HUNTER_API_KEY_2]
+    .filter((k): k is string => !!k && k.trim() !== "");
+  if (ks.length === 0) throw new Error("HUNTER_API_KEY is not configured.");
+  return ks;
 }
 
 function cleanDomain(d: string) {
   return d.replace(/^https?:\/\//i, "").replace(/^www\./i, "").split("/")[0];
 }
 
+// Status codes that indicate this key is exhausted/blocked — try the next key.
+const FALLBACK_STATUSES = new Set([401, 402, 403, 429, 451]);
+
 async function get(path: string, params: Record<string, string | number | undefined>) {
-  const url = new URL(`${HUNTER_BASE}${path}`);
-  url.searchParams.set("api_key", key());
-  for (const [k, v] of Object.entries(params)) {
-    if (v !== undefined && v !== "") url.searchParams.set(k, String(v));
+  const allKeys = keys();
+  let lastErr: { status: number; body: unknown } | null = null;
+
+  for (let i = 0; i < allKeys.length; i++) {
+    const url = new URL(`${HUNTER_BASE}${path}`);
+    url.searchParams.set("api_key", allKeys[i]);
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined && v !== "") url.searchParams.set(k, String(v));
+    }
+    const res = await fetch(url.toString());
+    const text = await res.text();
+    let data: unknown;
+    try { data = JSON.parse(text); } catch { data = text; }
+
+    if (res.ok) return data as Record<string, unknown>;
+
+    lastErr = { status: res.status, body: data };
+    // Only fall back to next key on quota/auth-style errors; otherwise fail fast.
+    if (!FALLBACK_STATUSES.has(res.status) || i === allKeys.length - 1) break;
   }
-  const res = await fetch(url.toString());
-  const text = await res.text();
-  let data: unknown;
-  try { data = JSON.parse(text); } catch { data = text; }
-  if (!res.ok) {
-    throw new Error(`Hunter ${path} ${res.status}: ${typeof data === "string" ? data : JSON.stringify(data)}`);
-  }
-  return data as Record<string, unknown>;
+
+  const body = lastErr?.body;
+  throw new Error(
+    `Hunter ${path} ${lastErr?.status}: ${typeof body === "string" ? body : JSON.stringify(body)}`,
+  );
 }
 
 export type HunterEmail = {
