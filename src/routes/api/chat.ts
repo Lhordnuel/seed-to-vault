@@ -328,7 +328,7 @@ async function sendPitchEmail(opts: {
 </body></html>`;
     } else {
       // Hiring template — branded layout
-      const blocks = body
+      const blockArr = body
         .split(/\n\n+/)
         .map((block) => {
           const lines = block.split(/\n/).map((l) => l.trim()).filter(Boolean);
@@ -347,8 +347,14 @@ async function sendPitchEmail(opts: {
           return `<p style="margin:0 0 16px;line-height:1.65;color:#e8e6e1;font-size:15px;">${esc(
             block,
           ).replace(/\n/g, "<br/>")}</p>`;
-        })
-        .join("");
+        });
+      const splitAt = blockArr.length >= 4 ? 3 : Math.max(1, Math.floor(blockArr.length / 2));
+      const topBlocks = blockArr.slice(0, splitAt).join("");
+      const bottomBlocks = blockArr.slice(splitAt).join("");
+      const imageBlock = `<div style="text-align:center;margin:28px 0;">
+  <img src="https://vaultio.site/__l5e/assets-v1/f440bb29-a0f6-430d-84aa-98354a396e22/vaultio-pitch-screens.jpeg" alt="Vaultio product — proposals, assessments, scheduling, and interviews in one platform" width="536" style="display:block;width:100%;max-width:536px;height:auto;border-radius:10px;border:1px solid #2a2928;margin:0 auto;" />
+  <p style="margin:10px 0 0;font-size:12px;color:#8a8784;line-height:1.5;">From proposal to signed contract — proposals, AI assessments, scheduling, and built-in video interviews. One platform.</p>
+</div>`;
       const headline = "The hiring infrastructure for growing teams";
       html = `<!doctype html><html><body style="margin:0;padding:0;background:#0f0f10;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f10;padding:0;">
@@ -360,12 +366,10 @@ async function sendPitchEmail(opts: {
         <tr><td style="background:#1c1b1a;padding:40px 32px 8px;">
           <h1 style="margin:0 0 28px;font-size:30px;line-height:1.2;font-weight:700;color:#f5f3ee;text-align:center;letter-spacing:-0.5px;">${headline}</h1>
         </td></tr>
-        <tr><td style="background:#1c1b1a;padding:0 32px 24px;" align="center">
-          <img src="https://vaultio.site/__l5e/assets-v1/f440bb29-a0f6-430d-84aa-98354a396e22/vaultio-pitch-screens.jpeg" alt="Vaultio product — proposals, assessments, scheduling, and interviews in one platform" width="536" style="display:block;width:100%;max-width:536px;height:auto;border-radius:10px;border:1px solid #2a2928;" />
-          <p style="margin:10px 0 0;font-size:12px;color:#8a8784;line-height:1.5;">From proposal to signed contract — proposals, AI assessments, scheduling, and built-in video interviews. One platform.</p>
-        </td></tr>
         <tr><td style="background:#1c1b1a;padding:8px 32px 24px;">
-          ${blocks}
+          ${topBlocks}
+          ${imageBlock}
+          ${bottomBlocks}
         </td></tr>
         <tr><td align="center" style="background:#1c1b1a;padding:8px 32px 44px;">
           <a href="https://vaultio.tech" style="display:inline-block;background:#f5f3ee;color:#0f0f10;text-decoration:none;font-weight:600;font-size:15px;padding:14px 32px;border-radius:999px;">Learn more</a>
