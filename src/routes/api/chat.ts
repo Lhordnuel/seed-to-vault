@@ -360,6 +360,10 @@ async function sendPitchEmail(opts: {
         <tr><td style="background:#1c1b1a;padding:40px 32px 8px;">
           <h1 style="margin:0 0 28px;font-size:30px;line-height:1.2;font-weight:700;color:#f5f3ee;text-align:center;letter-spacing:-0.5px;">${headline}</h1>
         </td></tr>
+        <tr><td style="background:#1c1b1a;padding:0 32px 24px;" align="center">
+          <img src="https://vaultio.site/__l5e/assets-v1/f440bb29-a0f6-430d-84aa-98354a396e22/vaultio-pitch-screens.jpeg" alt="Vaultio product — proposals, assessments, scheduling, and interviews in one platform" width="536" style="display:block;width:100%;max-width:536px;height:auto;border-radius:10px;border:1px solid #2a2928;" />
+          <p style="margin:10px 0 0;font-size:12px;color:#8a8784;line-height:1.5;">From proposal to signed contract — proposals, AI assessments, scheduling, and built-in video interviews. One platform.</p>
+        </td></tr>
         <tr><td style="background:#1c1b1a;padding:8px 32px 24px;">
           ${blocks}
         </td></tr>
