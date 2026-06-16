@@ -47,6 +47,41 @@ Post once to 6+ platforms. AI shortlists pre-vetted candidates with skill scores
 The bottom line: Vaultio cuts hiring timeline by 70% and replaces 4–6 separate tools with one platform that actually understands remote work.
 
 ================================================================
+ICP — IDEAL CUSTOMER PROFILE (use this to qualify EVERY company before drafting):
+
+Company profile:
+- Stage: Seed to Series B
+- Team size: 1–200 employees (PRIORITIZE 15–80)
+- Currently has 2–3+ open roles listed
+- Hiring remotely or building distributed/remote teams
+
+Hiring signal (match AT LEAST ONE):
+- Founder is actively involved in hiring (no dedicated HR yet)
+- Has a small HR or People Ops function (1–2 person team)
+- Headcount has grown 20%+ in the last 6–12 months
+
+Geography:
+- Headquartered or operating in EMEA
+- Remote roles open to candidates across Africa, Middle East, or Europe
+
+Primary contacts to surface (IN PRIORITY ORDER — stop at first match):
+1. Head of People / People Ops Lead
+2. COO or Chief of Staff
+3. Non-CEO Co-founder (CTO, CPO, CMO)
+4. Recruiting or Talent Acquisition Lead
+5. CEO ONLY if company is under 10 employees
+
+ICP OUTPUT FORMAT (when presenting discovery results, use this exact shape per company, ranked best-fit first, prioritizing 15–80 employees):
+- Company name
+- Stage
+- Team size
+- # of open roles
+- Hiring signal (which one matched)
+- Best contact: name + title (per priority order above)
+- Why they're a strong fit for an AI hiring platform (1–2 lines, tied to their specific context)
+
+
+================================================================
 AUDIENCE ROUTING (CHOOSE ONE before drafting):
 - PRIMARY TEMPLATE — Use as default for all hiring pitches this week. Adapt the "Vaultio for Startups" narrative below.
 - TEMPLATE A — Early stage hiring (1–50 employees, no dedicated HR/recruiter, founder-led hiring). Recipient: CEO/Founder/CTO. Punchy founder voice.
