@@ -5,36 +5,51 @@
 
 const LUSHA_BASE = "https://api.lusha.com";
 
-function key() {
-  const k = process.env.LUSHA_API_KEY;
-  if (!k) throw new Error("LUSHA_API_KEY is not configured.");
-  return k;
+function keys(): string[] {
+  const all = [process.env.LUSHA_API_KEY, process.env.LUSHA_API_KEY_2]
+    .map((k) => (k ?? "").trim())
+    .filter((k) => k.length > 0);
+  if (!all.length) throw new Error("LUSHA_API_KEY is not configured.");
+  return all;
 }
 
+// Status codes worth rotating keys on (quota/auth/plan issues)
+const FALLBACK_STATUSES = new Set([401, 402, 403, 429, 451]);
+
 async function lushaFetch(path: string, init: RequestInit = {}) {
-  const res = await fetch(`${LUSHA_BASE}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      accept: "application/json",
-      api_key: key(),
-      ...(init.headers || {}),
-    },
-  });
-  const text = await res.text();
-  let data: unknown;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    data = text;
-  }
-  if (!res.ok) {
-    throw new Error(
+  const allKeys = keys();
+  let lastErr: Error | null = null;
+  for (let i = 0; i < allKeys.length; i++) {
+    const apiKey = allKeys[i];
+    const res = await fetch(`${LUSHA_BASE}${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        accept: "application/json",
+        api_key: apiKey,
+        ...(init.headers || {}),
+      },
+    });
+    const text = await res.text();
+    let data: unknown;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = text;
+    }
+    if (res.ok) return data as Record<string, unknown>;
+
+    const err = new Error(
       `Lusha ${path} ${res.status}: ${typeof data === "string" ? data : JSON.stringify(data)}`,
     );
+    lastErr = err;
+    // Only rotate to next key on fallback-worthy statuses, and only if another key exists
+    if (i < allKeys.length - 1 && FALLBACK_STATUSES.has(res.status)) continue;
+    throw err;
   }
-  return data as Record<string, unknown>;
+  throw lastErr ?? new Error(`Lusha ${path} failed`);
 }
+
 
 export type LushaContact = {
   name?: string;
