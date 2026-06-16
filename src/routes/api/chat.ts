@@ -450,12 +450,12 @@ async function sendPitchEmail(opts: {
             const items = lines
               .map(
                 (l) =>
-                  `<li style="margin:0 0 10px;line-height:1.55;color:#e8e6e1;font-size:15px;">${esc(
+                  `<li style="margin:0 0 10px;line-height:1.6;color:#2d2d2d;font-size:15px;">${esc(
                     l.replace(/^[-•*]\s+/, ""),
                   )}</li>`,
               )
               .join("");
-            return `<ul style="margin:0 0 18px;padding-left:20px;">${items}</ul>`;
+            return `<ul style="margin:0 0 20px;padding-left:22px;">${items}</ul>`;
           }
       return `<p style="margin:0 0 18px;line-height:1.65;color:#2d2d2d;font-size:16px;">${esc(
             block,
