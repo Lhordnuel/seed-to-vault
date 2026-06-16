@@ -457,42 +457,36 @@ async function sendPitchEmail(opts: {
               .join("");
             return `<ul style="margin:0 0 18px;padding-left:20px;">${items}</ul>`;
           }
-          return `<p style="margin:0 0 16px;line-height:1.65;color:#e8e6e1;font-size:15px;">${esc(
+      return `<p style="margin:0 0 18px;line-height:1.65;color:#2d2d2d;font-size:16px;">${esc(
             block,
           ).replace(/\n/g, "<br/>")}</p>`;
         });
       const splitAt = blockArr.length >= 4 ? 3 : Math.max(1, Math.floor(blockArr.length / 2));
       const topBlocks = blockArr.slice(0, splitAt).join("");
       const bottomBlocks = blockArr.slice(splitAt).join("");
-      const imageBlock = `<div style="text-align:center;margin:28px 0;">
-  <img src="https://vaultio.site/__l5e/assets-v1/f440bb29-a0f6-430d-84aa-98354a396e22/vaultio-pitch-screens.jpeg" alt="Vaultio product — proposals, assessments, scheduling, and interviews in one platform" width="536" style="display:block;width:100%;max-width:536px;height:auto;border-radius:10px;border:1px solid #2a2928;margin:0 auto;" />
-  <p style="margin:10px 0 0;font-size:12px;color:#8a8784;line-height:1.5;">From proposal to signed contract — proposals, AI assessments, scheduling, and built-in video interviews. One platform.</p>
+      const imageBlock = `<div style="text-align:center;margin:32px 0;">
+  <img src="https://vaultio.site/__l5e/assets-v1/f440bb29-a0f6-430d-84aa-98354a396e22/vaultio-pitch-screens.jpeg" alt="Vaultio product — proposals, assessments, scheduling, and interviews in one platform" width="536" style="display:block;width:100%;max-width:536px;height:auto;border-radius:12px;border:1px solid #e5e5e5;margin:0 auto;" />
+  <p style="margin:10px 0 0;font-size:12px;color:#8a8a8a;line-height:1.5;letter-spacing:0.2px;">From proposal to signed contract — proposals, AI assessments, scheduling, and built-in video interviews. One platform.</p>
 </div>`;
-      const headline = "The hiring infrastructure for growing teams";
-      html = `<!doctype html><html><body style="margin:0;padding:0;background:#0f0f10;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f10;padding:0;">
+      html = `<!doctype html><html><body style="margin:0;padding:0;background:#faf9f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#2d2d2d;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#faf9f7;padding:0;">
     <tr><td align="center">
-      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
-        <tr><td style="background:#6b6cff;padding:22px 32px;">
-          <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:26px;font-weight:800;color:#0f0f10;letter-spacing:-0.5px;">vaultio.</div>
-        </td></tr>
-        <tr><td style="background:#1c1b1a;padding:40px 32px 8px;">
-          <h1 style="margin:0 0 28px;font-size:30px;line-height:1.2;font-weight:700;color:#f5f3ee;text-align:center;letter-spacing:-0.5px;">${headline}</h1>
-        </td></tr>
-        <tr><td style="background:#1c1b1a;padding:8px 32px 24px;">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #ecebea;">
+        <tr><td style="padding:48px 40px 0;">
+          <div style="font-size:18px;font-weight:700;color:#1a1a1a;letter-spacing:-0.3px;margin-bottom:32px;">vaultio.</div>
           ${topBlocks}
           ${imageBlock}
           ${bottomBlocks}
         </td></tr>
-        <tr><td align="center" style="background:#1c1b1a;padding:8px 32px 44px;">
-          <a href="https://vaultio.tech" style="display:inline-block;background:#f5f3ee;color:#0f0f10;text-decoration:none;font-weight:600;font-size:15px;padding:14px 32px;border-radius:999px;">Learn more</a>
+        <tr><td style="padding:8px 40px 48px;">
+          <a href="https://vaultio.tech" style="display:inline-block;background:#1a1a1a;color:#faf9f7;text-decoration:none;font-weight:500;font-size:15px;padding:14px 28px;border-radius:10px;">Learn more</a>
         </td></tr>
-        <tr><td style="background:#ececec;padding:28px 32px 24px;text-align:center;">
-          <p style="margin:0 0 14px;font-size:13px;font-weight:600;color:#1a1a1a;">Vaultio · Hiring infrastructure for early-stage teams</p>
-          <p style="margin:0;font-size:12px;color:#6b6b6b;line-height:1.5;">
-            <a href="https://vaultio.tech" style="color:#1a1a1a;text-decoration:none;">vaultio.tech</a> &nbsp;·&nbsp; Reply to this email and it reaches Emmanuel directly.
+        <tr><td style="border-top:1px solid #ecebea;padding:28px 40px 32px;text-align:left;">
+          <p style="margin:0 0 6px;font-size:13px;font-weight:600;color:#1a1a1a;letter-spacing:0.2px;">Vaultio · Hiring infrastructure for early-stage teams</p>
+          <p style="margin:0;font-size:12px;color:#8a8a8a;line-height:1.5;">
+            <a href="https://vaultio.tech" style="color:#1a1a1a;text-decoration:underline;text-underline-offset:2px;">vaultio.tech</a> · Reply to this email and it reaches Emmanuel directly.
           </p>
-          <p style="margin:14px 0 0;font-size:11px;color:#9a9a9a;">© ${new Date().getFullYear()} Vaultio. All rights reserved.</p>
+          <p style="margin:16px 0 0;font-size:11px;color:#b0b0b0;">© ${new Date().getFullYear()} Vaultio. All rights reserved.</p>
         </td></tr>
       </table>
     </td></tr>
