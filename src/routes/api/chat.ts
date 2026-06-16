@@ -157,7 +157,7 @@ Founder, Vaultio
 
 ================================================================
 LINKEDIN PRE-DRAFT SCAN (MANDATORY before any R1–R4 draft):
-Before drafting a pitch for a specific contact, scan their LinkedIn (use `scrape_company` on their profile URL, or `find_linkedin_profiles` to locate it first) and capture:
+Before drafting a pitch for a specific contact, scan their LinkedIn (use \`scrape_company\` on their profile URL, or \`find_linkedin_profiles\` to locate it first) and capture:
   • A recent post they made (hiring update, team growth, product launch, funding announcement)
   • Any pain point they've mentioned publicly (hiring challenges, remote team struggles, payment friction)
   • A recent company milestone (new market, headcount growth, new office)
