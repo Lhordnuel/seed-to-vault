@@ -82,78 +82,8 @@ ICP OUTPUT FORMAT (when presenting discovery results, use this exact shape per c
 
 
 ================================================================
-AUDIENCE ROUTING (CHOOSE ONE before drafting):
-- PRIMARY TEMPLATE — Use as default for all hiring pitches this week. Adapt the "Vaultio for Startups" narrative below.
-- TEMPLATE A — Early stage hiring (1–50 employees, no dedicated HR/recruiter, founder-led hiring). Recipient: CEO/Founder/CTO. Punchy founder voice.
-- TEMPLATE B — Scaling teams hiring (51–200 employees WITH HR/People/Talent function). Recipient: Head of People, Head of Talent, HR Manager, Talent Acquisition Lead, Recruiter. Metrics-focused operator voice.
-If unsure, route by company size. Always set audience="hiring" when sending.
+AUDIENCE ROUTING: Always set audience="hiring" when sending. Pick the ROLE-SPECIFIC template (R1–R4) below that matches the contact's role. The long "Vaultio for Startups" pitch and the early-stage / scaling Template A & B variants have been retired — do NOT use them.
 
-================================================================
-PRIMARY TEMPLATE — "Vaultio for Startups" (default this week). Fill [Name], [Role], [Company]:
----
-Hi [Name],
-
-Startups don't have months to hire. Vaultio is the remote work platform that lets you go from job post to signed contract in days, not weeks — with AI doing the heavy lifting.
-
-If you're growing [Company], you probably know the pain: juggling LinkedIn, Zoom, Breezy, Deel, and PayPal just to hire one remote engineer. It takes 6–8 weeks, costs thousands, and you still guess on quality.
-
-Vaultio fixes it in five moves:
-
-1. Post once, reach everywhere. Your job auto-distributes to LinkedIn, Wellfound, F6S, and 5+ other channels instantly.
-2. AI shortlists for you. Swipe through pre-vetted candidates with AI-graded skill scores and cover letters — like Tinder for talent, but useful.
-3. Vet without the back-and-forth. Built-in quizzes, AI-graded assessments, and one-click video interviews. No Calendly, no Zoom links.
-4. Pay globally in minutes. USDT/crypto payouts + Paddle billing. Your contractor in Lagos or Kyiv gets paid same-day, no SWIFT fees.
-5. One platform, zero context switching. Job posting → proposals → assessments → interviews → contracts → escrow → payouts. All inside Vaultio.
-
-For your team: your own talent gets an AI workspace (Vaultio Studio — collaboration, file sharing and editing, plus assigning tasks and tracking deadlines, which is optional), a public portfolio, and smart job matching — so you're not just hiring, you're attracting top remote talent who want to work with modern tools.
-
-No calls needed — just 5 minutes to get your [Role] live.
-
-Emmanuel
-Founder, Vaultio
----
-
-================================================================
-TEMPLATE A — EARLY STAGE (1–50, founder-led). Fill [Name], [Role], [Company]:
----
-Hi [Name],
-
-Growing [Company] means hiring fast without the 6–8 week mess. Vaultio is the remote work platform that gets you from job post to signed contract in days — AI does the heavy lifting.
-
-Instead of juggling LinkedIn, Zoom, Breezy, Deel, and PayPal for every hire, Vaultio gives you one loop:
-
-• Post once → auto-distributed to 6+ platforms
-• AI shortlists pre-vetted candidates with skill scores and cover letters
-• Built-in quizzes + one-click video interviews — no Calendly or Zoom hunting
-• USDT/crypto payouts + Paddle billing — pay globally in minutes, no SWIFT fees
-• Vaultio Studio for collaboration, file sharing and editing, plus assigning tasks and tracking deadlines (deadline tracking is optional)
-
-No calls needed — just 5 minutes to get your [Role] live.
-
-Emmanuel
-Founder, Vaultio
----
-
-================================================================
-TEMPLATE B — SCALING TEAMS (51–200, HR/Talent recipient). Fill [Name], [Role], [Company]:
----
-Hey [Name],
-
-Most talent teams at your stage burn 5–8 hours per hire stitching together job boards, ATS, assessments, schedulers, and video calls. Vaultio collapses that into one platform — cutting hiring timeline by 70%.
-
-Here's how:
-
-• Post once → auto-distributed to 6+ platforms (saves ~3 hrs)
-• AI ranks applicants by fit + auto-assessments validate before interview (saves ~2 hrs)
-• Built-in scheduler + video interview, no Zoom/Calendly hunting (saves ~1 hr)
-• USDT/crypto payouts + Paddle billing — pay contractors globally in minutes, no SWIFT fees
-• Vaultio Studio — collaboration, file sharing and editing, plus assigning tasks and tracking deadlines (deadline tracking is optional)
-
-No calls needed — just 5 minutes to get your [Role] live.
-
-Emmanuel
-Founder, Vaultio
----
 
 ================================================================
 LINKEDIN PRE-DRAFT SCAN (MANDATORY before any R1–R4 draft):
@@ -246,7 +176,7 @@ Before drafting ANY pitch you MUST gather person- AND company-specific research:
 
 Every email MUST include, in the first 2 sentences, at least ONE concrete personal/company detail that proves research. Generic openers like "Saw [Company] is hiring" are BANNED unless paired with a researched specific in the same paragraph.
 
-The templates above are SKELETONS — rewrite the opener and the value paragraph per recipient. Never send two recipients the same body. Always keep the closing "No calls needed — just 5 minutes to get your [Role] live." line. If you don't have enough research to personalize, do MORE research before drafting; do not fall back to a generic pitch.
+The R1–R4 templates above are SKELETONS — rewrite the opener and (where appropriate) the middle line per recipient. Never send two recipients the same body. Keep the CTA exactly as written in the chosen R template. If you don't have enough research to personalize, do MORE research before drafting; do not fall back to a generic pitch.
 
 SUBJECT LINES — hard NOT to open. Personalized to the person or a specific company detail, under 60 chars. No spammy words.
 Examples: "[Name], saw your [specific thing]" · "[Company]'s [Role] hire — quick idea" · "[Vertical] hiring pain → 70% faster"
@@ -256,17 +186,18 @@ How to work:
 2. Contact lookup — STRICT ORDER, stop at first success that yields a usable email:
    a. \`apollo_find_contacts\` (verified emails — pass mode="hiring", or custom titles when needed). Runs Apollo search, then Bulk People Enrichment with reveal_personal_emails=true. NOTE: Apollo masks emails as 'email_not_unlocked@domain.com' when reveal credits/plan access are exhausted — the tool filters these out automatically. If Apollo returns no usable email, move on.
    b. \`lusha_find_contacts\` (or \`lusha_enrich_person\` if you have a specific name) — primary fallback when Apollo returns nothing.
-   c. \`hunter_domain_search\` if Lusha fails — Template B pass department='hr', Template A pass seniority='executive'. Use \`hunter_email_finder\` when you have a specific name + domain.
+   c. \`hunter_domain_search\` if Lusha fails — for HR/People/Talent recipients (R1, R4) pass department='hr'; for founder/exec recipients (R3) pass seniority='executive'. Use \`hunter_email_finder\` when you have a specific name + domain.
    d. \`prospeo_email_finder\` / \`prospeo_domain_search\` if Hunter fails.
    e. \`pdl_person_enrich\` / \`pdl_person_search\` (People Data Labs) if Prospeo fails — best when you have a name or LinkedIn URL.
    f. \`tomba_domain_search\` / \`tomba_email_finder\` if PDL fails.
    g. \`ai_source_emails\` (Claude Opus on AWS Bedrock) if every provider above failed — scrapes site + reasons about likely patterns.
    h. \`find_linkedin_profiles\` (Firecrawl LinkedIn search) ONLY as the final fallback when no email exists anywhere. Surface the LinkedIn URLs so Nuel can DM manually.
 3. RESEARCH PASS (MANDATORY before draft_pitch): for each recipient, run \`scrape_company\` on the company site AND on the recipient's LinkedIn/about page. Record 2–3 specific facts and the industry pain you'll lead with.
-4. Filter: seed–Series B, 1–200 people. Tag each lead [Primary], [A], or [B].
-5. Present results as a numbered list: company, 1-line description, stage/size, [Primary/A/B], roles, contact (or LinkedIn fallback), source URL, AND the research bullets you'll personalize on.
-6. \`draft_pitch\` using the correct template (Primary/A/B) — rewrite opener + value paragraph using the research. Show draft + recipients for approval unless user said "send it".
+4. Filter: seed–Series B, 1–200 people. Tag each lead with the R template you'll use [R1/R2/R3/R4] based on role.
+5. Present results as a numbered list: company, 1-line description, stage/size, [R1/R2/R3/R4], roles, contact (or LinkedIn fallback), source URL, AND the research bullets you'll personalize on.
+6. \`draft_pitch\` using the correct R template (R1/R2/R3/R4) — rewrite opener using the research, keep the CTA exactly. Show draft + recipients for approval unless user said "send it".
 7. SINGLE → \`send_pitch\` (audience="hiring"). MULTIPLE → \`bulk_send_pitch\` ONCE (rate-limited, dedupes). Each body MUST be unique and personalized.
+
 8. NEVER send without a recipient email. NEVER send to generic / role-based inboxes (info@, hello@, contact@, sales@, support@, admin@, jobs@, careers@, hr@, talent@, recruiting@, team@, etc.). Use only a named person's work email; otherwise fall back to LinkedIn.
 9. NEVER loop \`send_pitch\` for batches. NEVER reuse the same body across recipients.
 10. ANTI-REUSE ENFORCEMENT (server-side): the send tools reject any email whose subject, opening sentence, or 5-word body shingles overlap too much with a previously sent email this session. Keep the CORE Vaultio positioning consistent but vary per recipient: (a) different subject hook, (b) different opening sentence built from a different researched fact, (c) different body structure. If a send is rejected for reuse, rewrite those three elements and retry.
@@ -676,7 +607,7 @@ export const Route = createFileRoute("/api/chat")({
           }),
           lusha_find_contacts: tool({
             description:
-              "Lusha contact lookup by company domain. Use as the FIRST fallback when Apollo returns no usable email (Apollo often masks emails as 'email_not_unlocked@domain.com' when out of reveal credits). Returns enriched contacts with business emails. Pass titles for Template A (CEO, Founder, CTO) or seniority=['director','vp','c_suite'] / titles for HR roles for Template B.",
+              "Lusha contact lookup by company domain. Use as the FIRST fallback when Apollo returns no usable email (Apollo often masks emails as 'email_not_unlocked@domain.com' when out of reveal credits). Returns enriched contacts with business emails. Pass titles for the recipient role you're targeting (R1: Head of People/People Ops; R2: COO/Chief of Staff; R3: CTO/CPO/CMO; R4: Recruiter/Talent Acquisition Lead).",
             inputSchema: z.object({
               domain: z.string().describe("Company domain, e.g. 'acme.com'"),
               titles: z
