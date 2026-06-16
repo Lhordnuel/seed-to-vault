@@ -82,78 +82,8 @@ ICP OUTPUT FORMAT (when presenting discovery results, use this exact shape per c
 
 
 ================================================================
-AUDIENCE ROUTING (CHOOSE ONE before drafting):
-- PRIMARY TEMPLATE — Use as default for all hiring pitches this week. Adapt the "Vaultio for Startups" narrative below.
-- TEMPLATE A — Early stage hiring (1–50 employees, no dedicated HR/recruiter, founder-led hiring). Recipient: CEO/Founder/CTO. Punchy founder voice.
-- TEMPLATE B — Scaling teams hiring (51–200 employees WITH HR/People/Talent function). Recipient: Head of People, Head of Talent, HR Manager, Talent Acquisition Lead, Recruiter. Metrics-focused operator voice.
-If unsure, route by company size. Always set audience="hiring" when sending.
+AUDIENCE ROUTING: Always set audience="hiring" when sending. Pick the ROLE-SPECIFIC template (R1–R4) below that matches the contact's role. The long "Vaultio for Startups" pitch and the early-stage / scaling Template A & B variants have been retired — do NOT use them.
 
-================================================================
-PRIMARY TEMPLATE — "Vaultio for Startups" (default this week). Fill [Name], [Role], [Company]:
----
-Hi [Name],
-
-Startups don't have months to hire. Vaultio is the remote work platform that lets you go from job post to signed contract in days, not weeks — with AI doing the heavy lifting.
-
-If you're growing [Company], you probably know the pain: juggling LinkedIn, Zoom, Breezy, Deel, and PayPal just to hire one remote engineer. It takes 6–8 weeks, costs thousands, and you still guess on quality.
-
-Vaultio fixes it in five moves:
-
-1. Post once, reach everywhere. Your job auto-distributes to LinkedIn, Wellfound, F6S, and 5+ other channels instantly.
-2. AI shortlists for you. Swipe through pre-vetted candidates with AI-graded skill scores and cover letters — like Tinder for talent, but useful.
-3. Vet without the back-and-forth. Built-in quizzes, AI-graded assessments, and one-click video interviews. No Calendly, no Zoom links.
-4. Pay globally in minutes. USDT/crypto payouts + Paddle billing. Your contractor in Lagos or Kyiv gets paid same-day, no SWIFT fees.
-5. One platform, zero context switching. Job posting → proposals → assessments → interviews → contracts → escrow → payouts. All inside Vaultio.
-
-For your team: your own talent gets an AI workspace (Vaultio Studio — collaboration, file sharing and editing, plus assigning tasks and tracking deadlines, which is optional), a public portfolio, and smart job matching — so you're not just hiring, you're attracting top remote talent who want to work with modern tools.
-
-No calls needed — just 5 minutes to get your [Role] live.
-
-Emmanuel
-Founder, Vaultio
----
-
-================================================================
-TEMPLATE A — EARLY STAGE (1–50, founder-led). Fill [Name], [Role], [Company]:
----
-Hi [Name],
-
-Growing [Company] means hiring fast without the 6–8 week mess. Vaultio is the remote work platform that gets you from job post to signed contract in days — AI does the heavy lifting.
-
-Instead of juggling LinkedIn, Zoom, Breezy, Deel, and PayPal for every hire, Vaultio gives you one loop:
-
-• Post once → auto-distributed to 6+ platforms
-• AI shortlists pre-vetted candidates with skill scores and cover letters
-• Built-in quizzes + one-click video interviews — no Calendly or Zoom hunting
-• USDT/crypto payouts + Paddle billing — pay globally in minutes, no SWIFT fees
-• Vaultio Studio for collaboration, file sharing and editing, plus assigning tasks and tracking deadlines (deadline tracking is optional)
-
-No calls needed — just 5 minutes to get your [Role] live.
-
-Emmanuel
-Founder, Vaultio
----
-
-================================================================
-TEMPLATE B — SCALING TEAMS (51–200, HR/Talent recipient). Fill [Name], [Role], [Company]:
----
-Hey [Name],
-
-Most talent teams at your stage burn 5–8 hours per hire stitching together job boards, ATS, assessments, schedulers, and video calls. Vaultio collapses that into one platform — cutting hiring timeline by 70%.
-
-Here's how:
-
-• Post once → auto-distributed to 6+ platforms (saves ~3 hrs)
-• AI ranks applicants by fit + auto-assessments validate before interview (saves ~2 hrs)
-• Built-in scheduler + video interview, no Zoom/Calendly hunting (saves ~1 hr)
-• USDT/crypto payouts + Paddle billing — pay contractors globally in minutes, no SWIFT fees
-• Vaultio Studio — collaboration, file sharing and editing, plus assigning tasks and tracking deadlines (deadline tracking is optional)
-
-No calls needed — just 5 minutes to get your [Role] live.
-
-Emmanuel
-Founder, Vaultio
----
 
 ================================================================
 LINKEDIN PRE-DRAFT SCAN (MANDATORY before any R1–R4 draft):
