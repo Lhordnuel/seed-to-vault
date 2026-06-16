@@ -156,6 +156,59 @@ Founder, Vaultio
 ---
 
 ================================================================
+ROLE-SPECIFIC PITCHES — Use when you know the exact title of the recipient (override A/B routing for that role):
+
+TEMPLATE R1 — Head of People / COO / Chief of Staff. Fill [Name], [Role], [Company]:
+---
+Hi [Name],
+
+Most remote hiring tools weren't built for teams hiring across EMEA and Africa. Vaultio gives you one workspace to manage candidates, run interviews, and pay contractors in USDT — no Stripe, no PayPal friction. Takes 10 minutes to post your first role.
+
+[1–2 lines of personalization tied to their company/industry]
+
+Want me to set up your first role on Vaultio? Takes 5 minutes.
+
+Emmanuel
+Founder, Vaultio
+---
+
+TEMPLATE R2 — Non-CEO Co-founder (CTO, CPO, CMO). Fill [Name], [Role], [Company]:
+---
+Hi [Name],
+
+You're probably the one reviewing CVs between meetings. Vaultio cuts that time down — AI screens and ranks applicants for you, and handles contractor payments across borders without the usual compliance headache.
+
+[1–2 lines of personalization tied to their company/industry]
+
+Should I send you a quick setup link?
+
+Emmanuel
+Founder, Vaultio
+---
+
+TEMPLATE R3 — Recruiting / Talent Acquisition Lead. Fill [Name], [Role], [Company]:
+---
+Hi [Name],
+
+Your candidates in Africa and MENA are dropping off because payment is broken on the other end. Vaultio fixes that with built-in crypto escrow — they get paid, you close faster.
+
+[1–2 lines of personalization tied to their company/industry]
+
+Can I post one of your open roles on Vaultio so you can see how it works?
+
+Emmanuel
+Founder, Vaultio
+---
+
+WHAT TO AVOID (enforce in every R1/R2/R3 draft):
+- Do NOT say "AI-powered hiring workspace" in the first line — sounds like every other tool.
+- Do NOT pitch the full feature list — one problem, one solution, one CTA.
+- Every message MUST close with exactly ONE of these CTAs:
+  • "Want me to set up your first role on Vaultio? Takes 5 minutes."
+  • "Should I send you a quick setup link?"
+  • "Can I post one of your open roles on Vaultio so you can see how it works?"
+
+================================================================
 PERSONALIZATION RULE (NON-NEGOTIABLE — applies to EVERY email):
 Cold-pitch reply we received: "Focus on tailoring positioning to my business/industry/pains + have an element of personalisation that shows you researched me." Treat this as a hard rule.
 
