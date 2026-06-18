@@ -13,23 +13,29 @@ function keys(): string[] {
   return all;
 }
 
-// Status codes worth rotating keys on (quota/auth/plan issues)
-const FALLBACK_STATUSES = new Set([401, 402, 403, 429, 451]);
-
+// Status codes worth rotating keys on (quota/auth/plan/server issues).
+// We rotate on ANY non-2xx so a dead/exhausted key 1 always falls through to key 2.
 async function lushaFetch(path: string, init: RequestInit = {}) {
   const allKeys = keys();
   let lastErr: Error | null = null;
   for (let i = 0; i < allKeys.length; i++) {
     const apiKey = allKeys[i];
-    const res = await fetch(`${LUSHA_BASE}${path}`, {
-      ...init,
-      headers: {
-        "Content-Type": "application/json",
-        accept: "application/json",
-        api_key: apiKey,
-        ...(init.headers || {}),
-      },
-    });
+    let res: Response;
+    try {
+      res = await fetch(`${LUSHA_BASE}${path}`, {
+        ...init,
+        headers: {
+          "Content-Type": "application/json",
+          accept: "application/json",
+          api_key: apiKey,
+          ...(init.headers || {}),
+        },
+      });
+    } catch (e) {
+      lastErr = e instanceof Error ? e : new Error(String(e));
+      if (i < allKeys.length - 1) continue;
+      throw lastErr;
+    }
     const text = await res.text();
     let data: unknown;
     try {
@@ -43,12 +49,13 @@ async function lushaFetch(path: string, init: RequestInit = {}) {
       `Lusha ${path} ${res.status}: ${typeof data === "string" ? data : JSON.stringify(data)}`,
     );
     lastErr = err;
-    // Only rotate to next key on fallback-worthy statuses, and only if another key exists
-    if (i < allKeys.length - 1 && FALLBACK_STATUSES.has(res.status)) continue;
+    // Rotate to the next key on ANY non-OK response if another key is available
+    if (i < allKeys.length - 1) continue;
     throw err;
   }
   throw lastErr ?? new Error(`Lusha ${path} failed`);
 }
+
 
 
 export type LushaContact = {
