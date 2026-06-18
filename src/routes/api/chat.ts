@@ -165,7 +165,7 @@ How to work:
 2. Contact lookup — STRICT ORDER, stop at first success that yields a usable email:
    a. \`apollo_find_contacts\` (verified emails — pass mode="hiring", or custom titles when needed). Runs Apollo search, then Bulk People Enrichment with reveal_personal_emails=true. NOTE: Apollo masks emails as 'email_not_unlocked@domain.com' when reveal credits/plan access are exhausted — the tool filters these out automatically. If Apollo returns no usable email, move on.
    b. \`lusha_find_contacts\` (or \`lusha_enrich_person\` if you have a specific name) — primary fallback when Apollo returns nothing.
-   c. \`hunter_domain_search\` if Lusha fails — for HR/People/Talent recipients (R1, R4) pass department='hr'; for founder/exec recipients (R3) pass seniority='executive'. Use \`hunter_email_finder\` when you have a specific name + domain.
+   c. \`hunter_domain_search\` if Lusha fails — for HR/People/Talent recipients pass department='hr'; for founder/exec recipients pass seniority='executive'. Use \`hunter_email_finder\` when you have a specific name + domain.
    d. \`prospeo_email_finder\` / \`prospeo_domain_search\` if Hunter fails.
    e. \`pdl_person_enrich\` / \`pdl_person_search\` (People Data Labs) if Prospeo fails — best when you have a name or LinkedIn URL.
    f. \`tomba_domain_search\` / \`tomba_email_finder\` if PDL fails.
