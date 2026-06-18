@@ -155,7 +155,7 @@ Before drafting ANY pitch you MUST gather person- AND company-specific research:
 
 Every email MUST include, in the first 2 sentences, at least ONE concrete personal/company detail that proves research. Generic openers like "Saw [Company] is hiring" are BANNED unless paired with a researched specific in the same paragraph.
 
-The R1–R4 templates above are SKELETONS — rewrite the opener and (where appropriate) the middle line per recipient. Never send two recipients the same body. Keep the CTA exactly as written in the chosen R template. If you don't have enough research to personalize, do MORE research before drafting; do not fall back to a generic pitch.
+The PITCH FRAMEWORK above is the SHAPE — write the body fresh per recipient using the scanned personal signal and live role. Never send two recipients the same body. If you don't have enough research to personalize, do MORE research before drafting; do not fall back to a generic pitch.
 
 SUBJECT LINES — hard NOT to open. Personalized to the person or a specific company detail, under 60 chars. No spammy words.
 Examples: "[Name], saw your [specific thing]" · "[Company]'s [Role] hire — quick idea" · "[Vertical] hiring pain → 70% faster"
