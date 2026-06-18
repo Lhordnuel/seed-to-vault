@@ -587,7 +587,7 @@ export const Route = createFileRoute("/api/chat")({
           }),
           lusha_find_contacts: tool({
             description:
-              "Lusha contact lookup by company domain. Use as the FIRST fallback when Apollo returns no usable email (Apollo often masks emails as 'email_not_unlocked@domain.com' when out of reveal credits). Returns enriched contacts with business emails. Pass titles for the recipient role you're targeting (R1: Head of People/People Ops; R2: COO/Chief of Staff; R3: CTO/CPO/CMO; R4: Recruiter/Talent Acquisition Lead).",
+              "Lusha contact lookup by company domain. Use as the FIRST fallback when Apollo returns no usable email (Apollo often masks emails as 'email_not_unlocked@domain.com' when out of reveal credits). Returns enriched contacts with business emails. Pass titles for the recipient role you're targeting (e.g. Head of People, COO, Chief of Staff, CTO/CPO/CMO, Recruiter/Talent Acquisition Lead, or founder if company <10 people).",
             inputSchema: z.object({
               domain: z.string().describe("Company domain, e.g. 'acme.com'"),
               titles: z
