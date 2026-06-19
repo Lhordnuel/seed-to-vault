@@ -354,7 +354,7 @@ async function sendPitchEmail(opts: {
   </table>
 </body></html>`;
     } else {
-      // Hiring template — branded layout
+      // Hiring template — clean text-only layout, no inline images
       const blockArr = body
         .split(/\n\n+/)
         .map((block) => {
@@ -375,24 +375,13 @@ async function sendPitchEmail(opts: {
             block,
           ).replace(/\n/g, "<br/>")}</p>`;
         });
-      const splitAt = blockArr.length >= 4 ? 3 : Math.max(1, Math.floor(blockArr.length / 2));
-      const topBlocks = blockArr.slice(0, splitAt).join("");
-      const bottomBlocks = blockArr.slice(splitAt).join("");
-      const imageBlock = `<div style="text-align:center;margin:32px 0;">
-  <img src="https://vaultio.site/__l5e/assets-v1/f440bb29-a0f6-430d-84aa-98354a396e22/vaultio-pitch-screens.jpeg" alt="Vaultio product — proposals, assessments, scheduling, and interviews in one platform" width="536" style="display:block;width:100%;max-width:536px;height:auto;border-radius:12px;border:1px solid #e5e5e5;margin:0 auto;" />
-  <p style="margin:10px 0 0;font-size:12px;color:#8a8a8a;line-height:1.5;letter-spacing:0.2px;">From proposal to signed contract — proposals, AI assessments, scheduling, and built-in video interviews. One platform.</p>
-</div>`;
+      const blocks = blockArr.join("");
       html = `<!doctype html><html><body style="margin:0;padding:0;background:#faf9f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#2d2d2d;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#faf9f7;padding:0;">
     <tr><td align="center">
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #ecebea;">
         <tr><td style="padding:48px 40px 0;">
-          <div style="margin-bottom:32px;">
-            <img src="https://vaultio.tech/vaultio-logo.png" alt="Vaultio" width="120" style="display:block;height:auto;max-width:120px;" />
-          </div>
-          ${topBlocks}
-          ${imageBlock}
-          ${bottomBlocks}
+          ${blocks}
         </td></tr>
         <tr><td style="padding:8px 40px 48px;">
           <a href="https://vaultio.tech" style="display:inline-block;background:#1a1a1a;color:#faf9f7;text-decoration:none;font-weight:500;font-size:15px;padding:14px 28px;border-radius:10px;">Learn more</a>
