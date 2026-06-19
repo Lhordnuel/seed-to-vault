@@ -588,6 +588,70 @@ export const Route = createFileRoute("/api/chat")({
               }
             },
           }),
+          fullenrich_enrich_person: tool({
+            description:
+              "PRIMARY contact enrichment via FullEnrich. Given a person's first/last name plus EITHER company domain OR LinkedIn URL (both preferred), returns their work email and phone. Best email accuracy of all providers — try this FIRST whenever you have a name. Polls the bulk job until FINISHED (up to ~60s).",
+            inputSchema: z.object({
+              firstName: z.string(),
+              lastName: z.string(),
+              domain: z.string().optional().describe("Company domain, e.g. 'acme.com'"),
+              companyName: z.string().optional(),
+              linkedinUrl: z.string().optional(),
+              title: z.string().optional(),
+            }),
+            execute: async ({ firstName, lastName, domain, companyName, linkedinUrl, title }) => {
+              try {
+                const contact = await fullenrichPersonEnrich({
+                  firstName,
+                  lastName,
+                  domain,
+                  companyName,
+                  linkedinUrl,
+                  title,
+                });
+                return { contact, found: !!contact?.email };
+              } catch (e) {
+                return { error: (e as Error).message, contact: null };
+              }
+            },
+          }),
+          fullenrich_bulk_enrich: tool({
+            description:
+              "PRIMARY bulk contact enrichment via FullEnrich. Pass an array of {firstName,lastName,domain?,linkedinUrl?,companyName?,title?} and receive back enriched contacts with emails (qualified VALID/CATCHALL/UNKNOWN) and phones. Use after Apollo discovery surfaces names but masks emails, or after find_linkedin_profiles returns named LinkedIn URLs. Polls until FINISHED.",
+            inputSchema: z.object({
+              contacts: z
+                .array(
+                  z.object({
+                    firstName: z.string(),
+                    lastName: z.string(),
+                    domain: z.string().optional(),
+                    companyName: z.string().optional(),
+                    linkedinUrl: z.string().optional(),
+                    title: z.string().optional(),
+                  }),
+                )
+                .min(1)
+                .max(25),
+            }),
+            execute: async ({ contacts }) => {
+              try {
+                const results = await fullenrichBulkEnrich(contacts);
+                const withEmail = results.filter((c) => c.email);
+                return {
+                  count: results.length,
+                  withEmailCount: withEmail.length,
+                  contacts: results,
+                  primaryContact: withEmail[0] ?? results[0] ?? null,
+                  note:
+                    withEmail.length === 0
+                      ? "FullEnrich returned no emails for these inputs. Fall back to apollo_find_contacts (for domain discovery) or lusha_find_contacts."
+                      : undefined,
+                };
+              } catch (e) {
+                return { error: (e as Error).message, contacts: [] };
+              }
+            },
+          }),
           lusha_find_contacts: tool({
             description:
               "Lusha contact lookup by company domain. Use as the FIRST fallback when Apollo returns no usable email (Apollo often masks emails as 'email_not_unlocked@domain.com' when out of reveal credits). Returns enriched contacts with business emails. Pass titles for the recipient role you're targeting (e.g. Head of People, COO, Chief of Staff, CTO/CPO/CMO, Recruiter/Talent Acquisition Lead, or founder if company <10 people).",
