@@ -23,6 +23,7 @@ import {
   isUsableApolloEmail,
 } from "@/lib/apollo.server";
 import { lushaCompanyEmployees, lushaPersonEnrich } from "@/lib/lusha.server";
+import { fullenrichBulkEnrich, fullenrichPersonEnrich } from "@/lib/fullenrich.server";
 import { hunterDomainSearch, hunterEmailFinder } from "@/lib/hunter.server";
 import { prospeoDomainSearch, prospeoEmailFinder } from "@/lib/prospeo.server";
 import { pdlPersonEnrich, pdlPersonSearch } from "@/lib/pdl.server";
@@ -163,14 +164,16 @@ Examples: "[Name], saw your [specific thing]" · "[Company]'s [Role] hire — qu
 How to work:
 1. Discovery (PRIMARY = Apollo): use \`apollo_search_startups\` first for structured startup results, then \`search_startups\` across Wellfound/F6S/YC/LinkedIn if Apollo returns nothing useful.
 2. Contact lookup — STRICT ORDER, stop at first success that yields a usable email:
-   a. \`apollo_find_contacts\` (verified emails — pass mode="hiring", or custom titles when needed). Runs Apollo search, then Bulk People Enrichment with reveal_personal_emails=true. NOTE: Apollo masks emails as 'email_not_unlocked@domain.com' when reveal credits/plan access are exhausted — the tool filters these out automatically. If Apollo returns no usable email, move on.
-   b. \`lusha_find_contacts\` (or \`lusha_enrich_person\` if you have a specific name) — primary fallback when Apollo returns nothing.
-   c. \`hunter_domain_search\` if Lusha fails — for HR/People/Talent recipients pass department='hr'; for founder/exec recipients pass seniority='executive'. Use \`hunter_email_finder\` when you have a specific name + domain.
-   d. \`prospeo_email_finder\` / \`prospeo_domain_search\` if Hunter fails.
-   e. \`pdl_person_enrich\` / \`pdl_person_search\` (People Data Labs) if Prospeo fails — best when you have a name or LinkedIn URL.
-   f. \`tomba_domain_search\` / \`tomba_email_finder\` if PDL fails.
-   g. \`ai_source_emails\` (Claude Opus on AWS Bedrock) if every provider above failed — scrapes site + reasons about likely patterns.
-   h. \`find_linkedin_profiles\` (Firecrawl LinkedIn search) ONLY as the final fallback when no email exists anywhere. Surface the LinkedIn URLs so Nuel can DM manually.
+   a. \`fullenrich_enrich_person\` (or \`fullenrich_bulk_enrich\` for multiple) — PRIMARY enrichment when you have a name + (domain OR LinkedIn URL). Best email accuracy; returns VALID/CATCHALL qualification. Always try this FIRST once you have a name.
+   b. \`apollo_find_contacts\` — use when you have a domain but NO names yet. Discovers people by title; runs Bulk People Enrichment with reveal_personal_emails=true. NOTE: Apollo masks emails as 'email_not_unlocked@domain.com' when reveal credits are exhausted — the tool filters these out. If Apollo discovers names but no usable email, feed those names into \`fullenrich_bulk_enrich\`.
+   c. \`apollo_search_startups\` for discovery only (not contact emails).
+   d. \`lusha_find_contacts\` / \`lusha_enrich_person\` — fallback when FullEnrich + Apollo both fail.
+   e. \`hunter_domain_search\` if Lusha fails — for HR/People/Talent recipients pass department='hr'; for founder/exec recipients pass seniority='executive'. Use \`hunter_email_finder\` when you have a specific name + domain.
+   f. \`prospeo_email_finder\` / \`prospeo_domain_search\` if Hunter fails.
+   g. \`pdl_person_enrich\` / \`pdl_person_search\` (People Data Labs) if Prospeo fails — best when you have a name or LinkedIn URL.
+   h. \`tomba_domain_search\` / \`tomba_email_finder\` if PDL fails.
+   i. \`ai_source_emails\` (Claude Opus on AWS Bedrock) if every provider above failed — scrapes site + reasons about likely patterns.
+   j. \`find_linkedin_profiles\` (Firecrawl LinkedIn search) ONLY as the final fallback when no email exists anywhere. Surface the LinkedIn URLs so Nuel can DM manually.
 3. RESEARCH PASS (MANDATORY before draft_pitch): for each recipient, run \`scrape_company\` on the company site AND on the recipient's LinkedIn/about page. Record 2–3 specific facts and the industry pain you'll lead with.
 4. Filter: seed–Series B, 1–200 people. Confirm each lead has at least one verifiable live role before drafting.
 5. Present results as a numbered list: company, 1-line description, stage/size, live role(s), contact (or LinkedIn fallback), source URL, AND the personal signal + live role you'll personalize on.
@@ -578,6 +581,70 @@ export const Route = createFileRoute("/api/chat")({
                   note:
                     withEmail.length === 0
                       ? "Apollo spent/attempted reveal enrichment but returned no usable emails (likely no credits, plan lacks email reveal/API enrichment, or Apollo only had masked data). Fall back to lusha_find_contacts, then hunter_domain_search."
+                      : undefined,
+                };
+              } catch (e) {
+                return { error: (e as Error).message, contacts: [] };
+              }
+            },
+          }),
+          fullenrich_enrich_person: tool({
+            description:
+              "PRIMARY contact enrichment via FullEnrich. Given a person's first/last name plus EITHER company domain OR LinkedIn URL (both preferred), returns their work email and phone. Best email accuracy of all providers — try this FIRST whenever you have a name. Polls the bulk job until FINISHED (up to ~60s).",
+            inputSchema: z.object({
+              firstName: z.string(),
+              lastName: z.string(),
+              domain: z.string().optional().describe("Company domain, e.g. 'acme.com'"),
+              companyName: z.string().optional(),
+              linkedinUrl: z.string().optional(),
+              title: z.string().optional(),
+            }),
+            execute: async ({ firstName, lastName, domain, companyName, linkedinUrl, title }) => {
+              try {
+                const contact = await fullenrichPersonEnrich({
+                  firstName,
+                  lastName,
+                  domain,
+                  companyName,
+                  linkedinUrl,
+                  title,
+                });
+                return { contact, found: !!contact?.email };
+              } catch (e) {
+                return { error: (e as Error).message, contact: null };
+              }
+            },
+          }),
+          fullenrich_bulk_enrich: tool({
+            description:
+              "PRIMARY bulk contact enrichment via FullEnrich. Pass an array of {firstName,lastName,domain?,linkedinUrl?,companyName?,title?} and receive back enriched contacts with emails (qualified VALID/CATCHALL/UNKNOWN) and phones. Use after Apollo discovery surfaces names but masks emails, or after find_linkedin_profiles returns named LinkedIn URLs. Polls until FINISHED.",
+            inputSchema: z.object({
+              contacts: z
+                .array(
+                  z.object({
+                    firstName: z.string(),
+                    lastName: z.string(),
+                    domain: z.string().optional(),
+                    companyName: z.string().optional(),
+                    linkedinUrl: z.string().optional(),
+                    title: z.string().optional(),
+                  }),
+                )
+                .min(1)
+                .max(25),
+            }),
+            execute: async ({ contacts }) => {
+              try {
+                const results = await fullenrichBulkEnrich(contacts);
+                const withEmail = results.filter((c) => c.email);
+                return {
+                  count: results.length,
+                  withEmailCount: withEmail.length,
+                  contacts: results,
+                  primaryContact: withEmail[0] ?? results[0] ?? null,
+                  note:
+                    withEmail.length === 0
+                      ? "FullEnrich returned no emails for these inputs. Fall back to apollo_find_contacts (for domain discovery) or lusha_find_contacts."
                       : undefined,
                 };
               } catch (e) {
