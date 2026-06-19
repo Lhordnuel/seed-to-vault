@@ -40,7 +40,7 @@ const SYSTEM_PROMPT = `You are Startup Scout, an AI sales-development agent for 
 
 Your job: find startups that are ACTIVELY HIRING (seed–Series B, 1–200 employees) and pitch Vaultio.
 
-Sender identity: emails go FROM "Emmanuel Nwachinemelu <nuel@mail.vaultio.tech>". Reply-To routes to nuel@vaultio.tech. Write in first person AS Emmanuel, Founder of Vaultio.
+Sender identity: emails go FROM "Emmanuel Nwachinemelu <nuel@outreach.vaultio.tech>". Reply-To routes to nuel@vaultio.tech. Write in first person AS Emmanuel, Founder of Vaultio.
 
 VAULTIO (what we pitch):
 Vaultio is the remote work platform that lets startups go from job post to signed contract in days, not weeks — with AI doing the heavy lifting.
@@ -387,7 +387,9 @@ async function sendPitchEmail(opts: {
     <tr><td align="center">
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #ecebea;">
         <tr><td style="padding:48px 40px 0;">
-          <div style="font-size:18px;font-weight:700;color:#1a1a1a;letter-spacing:-0.3px;margin-bottom:32px;">vaultio.</div>
+          <div style="margin-bottom:32px;">
+            <img src="https://vaultio.tech/vaultio-logo.png" alt="Vaultio" width="120" style="display:block;height:auto;max-width:120px;" />
+          </div>
           ${topBlocks}
           ${imageBlock}
           ${bottomBlocks}
@@ -416,7 +418,7 @@ async function sendPitchEmail(opts: {
         "X-Connection-Api-Key": resendKey,
       },
       body: JSON.stringify({
-        from: "Emmanuel Nwachinemelu <nuel@mail.vaultio.tech>",
+        from: "Emmanuel Nwachinemelu <nuel@outreach.vaultio.tech>",
         to: [to],
         reply_to: "nuel@vaultio.tech",
         subject,
@@ -1234,7 +1236,7 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
           }),
           send_pitch: tool({
             description:
-              "Send a SINGLE pitch email via Resend. From: nuel@mail.vaultio.tech. Reply-To: nuel@vaultio.tech. Pass audience='vc' for investor outreach (renders a clean plain-text-style email — no marketing chrome, no CTA button). Default audience='hiring' uses the branded Vaultio layout. Use bulk_send_pitch for multiple recipients.",
+              "Send a SINGLE pitch email via Resend. From: nuel@outreach.vaultio.tech. Reply-To: nuel@vaultio.tech. Pass audience='vc' for investor outreach (renders a clean plain-text-style email — no marketing chrome, no CTA button). Default audience='hiring' uses the branded Vaultio layout. Use bulk_send_pitch for multiple recipients.",
             inputSchema: z.object({
               to: z.string().email().describe("Recipient email address"),
               subject: z.string().min(1).max(200),
@@ -1351,7 +1353,7 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
           }),
           send_generic_email: tool({
             description:
-              "Send a free-form email via Resend. ONLY call this after Nuel has explicitly approved the draft from draft_generic_email (e.g. 'send it', 'approve', 'yes send'). Skips pitch templates, anti-reuse, and generic-inbox checks. Renders a clean plain-text-style email. From: nuel@mail.vaultio.tech. Reply-To defaults to nuel@vaultio.tech.",
+              "Send a free-form email via Resend. ONLY call this after Nuel has explicitly approved the draft from draft_generic_email (e.g. 'send it', 'approve', 'yes send'). Skips pitch templates, anti-reuse, and generic-inbox checks. Renders a clean plain-text-style email. From: nuel@outreach.vaultio.tech. Reply-To defaults to nuel@vaultio.tech.",
             inputSchema: z.object({
               to: z.string().email(),
               subject: z.string().min(1).max(200),
@@ -1392,7 +1394,7 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
                     "X-Connection-Api-Key": resendKey,
                   },
                   body: JSON.stringify({
-                    from: `${fromName ?? "Emmanuel Nwachinemelu"} <nuel@mail.vaultio.tech>`,
+                    from: `${fromName ?? "Emmanuel Nwachinemelu"} <nuel@outreach.vaultio.tech>`,
                     to: [to],
                     cc: ccList,
                     reply_to: replyTo ?? "nuel@vaultio.tech",
