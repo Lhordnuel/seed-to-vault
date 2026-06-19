@@ -69,27 +69,23 @@ function cleanDomain(d?: string) {
 function normalize(row: Record<string, unknown>): FullEnrichContact {
   const contact = (row.contact ?? row) as Record<string, unknown>;
   const emailsRaw = (contact.emails ?? []) as Array<Record<string, unknown>>;
-  const emails = emailsRaw
-    .map((e) => {
-      const address = (e.email ?? e.address) as string | undefined;
-      if (!address) return null;
-      return {
-        address,
-        qualification: (e.qualification ?? e.status) as string | undefined,
-      };
-    })
-    .filter((e): e is { address: string; qualification?: string } => !!e);
-  // Prefer VALID over CATCHALL/UNKNOWN
-  const ranked = [...emails].sort((a, b) => {
-    const score = (q?: string) => {
-      const v = (q ?? "").toUpperCase();
-      if (v === "VALID") return 3;
-      if (v === "CATCHALL") return 2;
-      if (v === "UNKNOWN") return 1;
-      return 0;
-    };
-    return score(b.qualification) - score(a.qualification);
-  });
+  const emails: { address: string; qualification?: string }[] = [];
+  for (const e of emailsRaw) {
+    const address = (e.email ?? e.address) as string | undefined;
+    if (!address) continue;
+    emails.push({
+      address,
+      qualification: (e.qualification ?? e.status) as string | undefined,
+    });
+  }
+  const score = (q?: string) => {
+    const v = (q ?? "").toUpperCase();
+    if (v === "VALID") return 3;
+    if (v === "CATCHALL") return 2;
+    if (v === "UNKNOWN") return 1;
+    return 0;
+  };
+  const ranked = [...emails].sort((a, b) => score(b.qualification) - score(a.qualification));
   const phonesRaw = (contact.phones ?? []) as Array<Record<string, unknown> | string>;
   const phone =
     typeof phonesRaw[0] === "string"
