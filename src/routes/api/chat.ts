@@ -387,7 +387,9 @@ async function sendPitchEmail(opts: {
     <tr><td align="center">
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #ecebea;">
         <tr><td style="padding:48px 40px 0;">
-          <div style="font-size:18px;font-weight:700;color:#1a1a1a;letter-spacing:-0.3px;margin-bottom:32px;">vaultio.</div>
+          <div style="margin-bottom:32px;">
+            <img src="https://vaultio.tech/vaultio-logo.png" alt="Vaultio" width="120" style="display:block;height:auto;max-width:120px;" />
+          </div>
           ${topBlocks}
           ${imageBlock}
           ${bottomBlocks}
