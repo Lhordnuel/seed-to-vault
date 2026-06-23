@@ -1347,14 +1347,18 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
               to: z.string().email(),
               subject: z.string().min(1).max(200),
               body: z.string().min(1),
-              cc: z.array(z.string().email()).optional(),
+              cc: z.array(z.string().email()).optional().describe("Extra CC recipients. nuel@vaultio.tech is added automatically per ccNuel/env."),
               replyTo: z.string().email().optional(),
               fromName: z.string().optional(),
+              ccNuel: z
+                .boolean()
+                .optional()
+                .describe("Override CC of nuel@vaultio.tech. Defaults to env CC_NUEL_ENABLED."),
               approved: z
                 .boolean()
                 .describe("Must be true. Set only after Nuel explicitly approved the draft in chat."),
             }),
-            execute: async ({ to, subject, body, cc, replyTo, fromName, approved }) => {
+            execute: async ({ to, subject, body, cc, replyTo, fromName, approved, ccNuel }) => {
               if (!approved) {
                 return { sent: false, error: "Approval required. Show the draft and wait for Nuel to say 'send it'." };
               }
@@ -1373,7 +1377,7 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
                 )
                 .join("");
               const html = `<!doctype html><html><body style="margin:0;padding:0;background:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#111;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="left"><table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;"><tr><td style="padding:24px 24px 24px;">${blocks}</td></tr></table></td></tr></table></body></html>`;
-              const ccList = cc && cc.length ? cc : ["nuel@vaultio.tech"];
+              const ccList = resolveCcList(ccNuel, cc);
               try {
                 const res = await fetch("https://connector-gateway.lovable.dev/resend/emails", {
                   method: "POST",
@@ -1385,8 +1389,9 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
                   body: JSON.stringify({
                     from: `${fromName ?? "Emmanuel Nwachinemelu"} <nuel@outreach.vaultio.tech>`,
                     to: [to],
-                    cc: ccList,
+                    ...(ccList.length ? { cc: ccList } : {}),
                     reply_to: replyTo ?? "nuel@vaultio.tech",
+
                     subject,
                     text: body,
                     html,
