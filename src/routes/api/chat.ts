@@ -29,6 +29,24 @@ import { prospeoDomainSearch, prospeoEmailFinder } from "@/lib/prospeo.server";
 import { pdlPersonEnrich, pdlPersonSearch } from "@/lib/pdl.server";
 import { tombaDomainSearch, tombaEmailFinder } from "@/lib/tomba.server";
 
+// CC configuration — toggle CC'ing nuel@vaultio.tech per environment or per call.
+// Env var CC_NUEL_ENABLED ("true"/"false", default "true") controls the default.
+// Each email tool also accepts a per-call `ccNuel` boolean to override per campaign.
+const CC_NUEL_ADDRESS = "nuel@vaultio.tech";
+function ccNuelDefault(): boolean {
+  const v = (process.env.CC_NUEL_ENABLED ?? "true").trim().toLowerCase();
+  return v !== "false" && v !== "0" && v !== "no" && v !== "off";
+}
+function resolveCcList(ccNuel: boolean | undefined, extra?: string[]): string[] {
+  const enabled = ccNuel ?? ccNuelDefault();
+  const list = extra ? [...extra] : [];
+  if (enabled && !list.some((e) => e.toLowerCase() === CC_NUEL_ADDRESS)) {
+    list.push(CC_NUEL_ADDRESS);
+  }
+  return list;
+}
+
+
 const SOURCE_DOMAINS: Record<string, string> = {
   wellfound: "wellfound.com",
   f6s: "f6s.com",
