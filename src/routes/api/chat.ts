@@ -1261,9 +1261,13 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
               audience: z
                 .enum(["hiring", "vc"])
                 .default("hiring")
-                .describe("Applies to every recipient in the batch."),
+                .describe("Kept for back-compat. Applies to every recipient in the batch."),
+              ccNuel: z
+                .boolean()
+                .optional()
+                .describe("Override CC of nuel@vaultio.tech for this whole campaign. Defaults to env CC_NUEL_ENABLED."),
             }),
-            execute: async ({ recipients, delayMs, audience }) => {
+            execute: async ({ recipients, delayMs, audience, ccNuel }) => {
               const sent: Array<{ to: string; subject: string; resendId?: string; companyName?: string }> = [];
               const skippedDuplicates: string[] = [];
               const skippedInBatch: string[] = [];
@@ -1289,7 +1293,9 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
                   body: r.body,
                   companyName: r.companyName,
                   audience,
+                  ccNuel,
                 });
+
                 if (result.sent) {
                   sentEmailsThisSession.add(email);
                   sent.push({
