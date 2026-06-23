@@ -29,6 +29,24 @@ import { prospeoDomainSearch, prospeoEmailFinder } from "@/lib/prospeo.server";
 import { pdlPersonEnrich, pdlPersonSearch } from "@/lib/pdl.server";
 import { tombaDomainSearch, tombaEmailFinder } from "@/lib/tomba.server";
 
+// CC configuration — toggle CC'ing nuel@vaultio.tech per environment or per call.
+// Env var CC_NUEL_ENABLED ("true"/"false", default "true") controls the default.
+// Each email tool also accepts a per-call `ccNuel` boolean to override per campaign.
+const CC_NUEL_ADDRESS = "nuel@vaultio.tech";
+function ccNuelDefault(): boolean {
+  const v = (process.env.CC_NUEL_ENABLED ?? "true").trim().toLowerCase();
+  return v !== "false" && v !== "0" && v !== "no" && v !== "off";
+}
+function resolveCcList(ccNuel: boolean | undefined, extra?: string[]): string[] {
+  const enabled = ccNuel ?? ccNuelDefault();
+  const list = extra ? [...extra] : [];
+  if (enabled && !list.some((e) => e.toLowerCase() === CC_NUEL_ADDRESS)) {
+    list.push(CC_NUEL_ADDRESS);
+  }
+  return list;
+}
+
+
 const SOURCE_DOMAINS: Record<string, string> = {
   wellfound: "wellfound.com",
   f6s: "f6s.com",
@@ -305,8 +323,9 @@ async function sendPitchEmail(opts: {
   body: string;
   companyName?: string;
   audience?: "hiring" | "vc";
-}): Promise<{ sent: boolean; to: string; subject: string; companyName?: string; replyTo?: string; resendId?: string; error?: string }> {
-  const { to, subject, body, companyName, audience = "hiring" } = opts;
+  ccNuel?: boolean;
+}): Promise<{ sent: boolean; to: string; subject: string; companyName?: string; replyTo?: string; resendId?: string; cc?: string[]; error?: string }> {
+  const { to, subject, body, companyName, audience = "hiring", ccNuel } = opts;
   if (isGenericEmail(to)) {
     return {
       sent: false,
@@ -328,77 +347,45 @@ async function sendPitchEmail(opts: {
     const esc = (s: string) =>
       s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-    let html: string;
-
-    if (audience === "vc") {
-      // Clean, plain founder-to-investor email. No marketing chrome.
-      // Render every paragraph as plain text; preserve line breaks as <br/>.
-      const vcBlocks = body
-        .split(/\n\n+/)
-        .map(
-          (block) =>
-            `<p style="margin:0 0 16px;line-height:1.6;color:#111111;font-size:15px;">${esc(
-              block,
-            ).replace(/\n/g, "<br/>")}</p>`,
-        )
-        .join("");
-      html = `<!doctype html><html><body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#111111;">
+    // Single clean plain-text layout for BOTH hiring and VC.
+    // Looks like a normal personal email — no card chrome, no CTA button, no footer logo.
+    // Lists ("- item") are rendered as a proper <ul>; paragraphs preserve line breaks.
+    const blockArr = body
+      .split(/\n\n+/)
+      .map((block) => {
+        const lines = block.split(/\n/).map((l) => l.trim()).filter(Boolean);
+        const isList = lines.length > 1 && lines.every((l) => /^[-•*]\s+/.test(l));
+        if (isList) {
+          const items = lines
+            .map(
+              (l) =>
+                `<li style="margin:0 0 6px;line-height:1.6;color:#111111;font-size:15px;">${esc(
+                  l.replace(/^[-•*]\s+/, ""),
+                )}</li>`,
+            )
+            .join("");
+          return `<ul style="margin:0 0 16px;padding-left:22px;">${items}</ul>`;
+        }
+        return `<p style="margin:0 0 16px;line-height:1.6;color:#111111;font-size:15px;">${esc(
+          block,
+        ).replace(/\n/g, "<br/>")}</p>`;
+      });
+    const blocks = blockArr.join("");
+    const html = `<!doctype html><html><body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#111111;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;">
     <tr><td align="left">
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
         <tr><td style="padding:32px 28px 24px;">
-          ${vcBlocks}
-        </td></tr>
-      </table>
-    </td></tr>
-  </table>
-</body></html>`;
-    } else {
-      // Hiring template — clean text-only layout, no inline images
-      const blockArr = body
-        .split(/\n\n+/)
-        .map((block) => {
-          const lines = block.split(/\n/).map((l) => l.trim()).filter(Boolean);
-          const isList = lines.length > 1 && lines.every((l) => /^[-•*]\s+/.test(l));
-          if (isList) {
-            const items = lines
-              .map(
-                (l) =>
-                  `<li style="margin:0 0 10px;line-height:1.6;color:#2d2d2d;font-size:15px;">${esc(
-                    l.replace(/^[-•*]\s+/, ""),
-                  )}</li>`,
-              )
-              .join("");
-            return `<ul style="margin:0 0 20px;padding-left:22px;">${items}</ul>`;
-          }
-      return `<p style="margin:0 0 18px;line-height:1.65;color:#2d2d2d;font-size:16px;">${esc(
-            block,
-          ).replace(/\n/g, "<br/>")}</p>`;
-        });
-      const blocks = blockArr.join("");
-      html = `<!doctype html><html><body style="margin:0;padding:0;background:#faf9f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#2d2d2d;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#faf9f7;padding:0;">
-    <tr><td align="center">
-      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #ecebea;">
-        <tr><td style="padding:48px 40px 0;">
           ${blocks}
         </td></tr>
-        <tr><td style="padding:8px 40px 48px;">
-          <a href="https://vaultio.tech" style="display:inline-block;background:#1a1a1a;color:#faf9f7;text-decoration:none;font-weight:500;font-size:15px;padding:14px 28px;border-radius:10px;">Learn more</a>
-        </td></tr>
-        <tr><td style="border-top:1px solid #ecebea;padding:28px 40px 32px;text-align:left;">
-          <p style="margin:0 0 6px;font-size:13px;font-weight:600;color:#1a1a1a;letter-spacing:0.2px;">Vaultio · Hiring infrastructure for early-stage teams</p>
-          <p style="margin:0;font-size:12px;color:#8a8a8a;line-height:1.5;">
-            <a href="https://vaultio.tech" style="color:#1a1a1a;text-decoration:underline;text-underline-offset:2px;">vaultio.tech</a> · Reply to this email and it reaches Emmanuel directly.
-          </p>
-          <p style="margin:16px 0 0;font-size:11px;color:#b0b0b0;">© ${new Date().getFullYear()} Vaultio. All rights reserved.</p>
-        </td></tr>
       </table>
     </td></tr>
   </table>
 </body></html>`;
-    }
+    // audience kept in the signature for callsite back-compat; design is unified now.
+    void audience;
 
+    const ccList = resolveCcList(ccNuel);
     const res = await fetch("https://connector-gateway.lovable.dev/resend/emails", {
       method: "POST",
       headers: {
@@ -409,7 +396,7 @@ async function sendPitchEmail(opts: {
       body: JSON.stringify({
         from: "Emmanuel Nwachinemelu <nuel@outreach.vaultio.tech>",
         to: [to],
-        cc: ["nuel@vaultio.tech"],
+        ...(ccList.length ? { cc: ccList } : {}),
         reply_to: "nuel@vaultio.tech",
         subject,
         text: body,
@@ -422,11 +409,12 @@ async function sendPitchEmail(opts: {
     }
     sentEmailsThisSession.add(to.toLowerCase().trim());
     recordSent(subject, body);
-    return { sent: true, to, subject, companyName, replyTo: "nuel@vaultio.tech", resendId: data?.id };
+    return { sent: true, to, subject, companyName, replyTo: "nuel@vaultio.tech", resendId: data?.id, cc: ccList };
   } catch (e) {
     return { sent: false, to, subject, error: (e as Error).message };
   }
 }
+
 
 export const Route = createFileRoute("/api/chat")({
   server: {
@@ -1238,11 +1226,16 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
               audience: z
                 .enum(["hiring", "vc"])
                 .default("hiring")
-                .describe("'vc' = clean investor email design; 'hiring' = branded Vaultio layout"),
+                .describe("Kept for back-compat. Email design is unified — clean plain-text style for both."),
+              ccNuel: z
+                .boolean()
+                .optional()
+                .describe("Override CC of nuel@vaultio.tech. Defaults to env CC_NUEL_ENABLED (true unless set to 'false')."),
             }),
-            execute: async ({ to, subject, body, companyName, audience }) => {
-              return sendPitchEmail({ to, subject, body, companyName, audience });
+            execute: async ({ to, subject, body, companyName, audience, ccNuel }) => {
+              return sendPitchEmail({ to, subject, body, companyName, audience, ccNuel });
             },
+
           }),
           bulk_send_pitch: tool({
             description:
@@ -1268,9 +1261,13 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
               audience: z
                 .enum(["hiring", "vc"])
                 .default("hiring")
-                .describe("Applies to every recipient in the batch."),
+                .describe("Kept for back-compat. Applies to every recipient in the batch."),
+              ccNuel: z
+                .boolean()
+                .optional()
+                .describe("Override CC of nuel@vaultio.tech for this whole campaign. Defaults to env CC_NUEL_ENABLED."),
             }),
-            execute: async ({ recipients, delayMs, audience }) => {
+            execute: async ({ recipients, delayMs, audience, ccNuel }) => {
               const sent: Array<{ to: string; subject: string; resendId?: string; companyName?: string }> = [];
               const skippedDuplicates: string[] = [];
               const skippedInBatch: string[] = [];
@@ -1296,7 +1293,9 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
                   body: r.body,
                   companyName: r.companyName,
                   audience,
+                  ccNuel,
                 });
+
                 if (result.sent) {
                   sentEmailsThisSession.add(email);
                   sent.push({
@@ -1348,14 +1347,18 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
               to: z.string().email(),
               subject: z.string().min(1).max(200),
               body: z.string().min(1),
-              cc: z.array(z.string().email()).optional(),
+              cc: z.array(z.string().email()).optional().describe("Extra CC recipients. nuel@vaultio.tech is added automatically per ccNuel/env."),
               replyTo: z.string().email().optional(),
               fromName: z.string().optional(),
+              ccNuel: z
+                .boolean()
+                .optional()
+                .describe("Override CC of nuel@vaultio.tech. Defaults to env CC_NUEL_ENABLED."),
               approved: z
                 .boolean()
                 .describe("Must be true. Set only after Nuel explicitly approved the draft in chat."),
             }),
-            execute: async ({ to, subject, body, cc, replyTo, fromName, approved }) => {
+            execute: async ({ to, subject, body, cc, replyTo, fromName, approved, ccNuel }) => {
               if (!approved) {
                 return { sent: false, error: "Approval required. Show the draft and wait for Nuel to say 'send it'." };
               }
@@ -1374,7 +1377,7 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
                 )
                 .join("");
               const html = `<!doctype html><html><body style="margin:0;padding:0;background:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#111;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="left"><table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;"><tr><td style="padding:24px 24px 24px;">${blocks}</td></tr></table></td></tr></table></body></html>`;
-              const ccList = cc && cc.length ? cc : ["nuel@vaultio.tech"];
+              const ccList = resolveCcList(ccNuel, cc);
               try {
                 const res = await fetch("https://connector-gateway.lovable.dev/resend/emails", {
                   method: "POST",
@@ -1386,8 +1389,9 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
                   body: JSON.stringify({
                     from: `${fromName ?? "Emmanuel Nwachinemelu"} <nuel@outreach.vaultio.tech>`,
                     to: [to],
-                    cc: ccList,
+                    ...(ccList.length ? { cc: ccList } : {}),
                     reply_to: replyTo ?? "nuel@vaultio.tech",
+
                     subject,
                     text: body,
                     html,
