@@ -1226,11 +1226,16 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
               audience: z
                 .enum(["hiring", "vc"])
                 .default("hiring")
-                .describe("'vc' = clean investor email design; 'hiring' = branded Vaultio layout"),
+                .describe("Kept for back-compat. Email design is unified — clean plain-text style for both."),
+              ccNuel: z
+                .boolean()
+                .optional()
+                .describe("Override CC of nuel@vaultio.tech. Defaults to env CC_NUEL_ENABLED (true unless set to 'false')."),
             }),
-            execute: async ({ to, subject, body, companyName, audience }) => {
-              return sendPitchEmail({ to, subject, body, companyName, audience });
+            execute: async ({ to, subject, body, companyName, audience, ccNuel }) => {
+              return sendPitchEmail({ to, subject, body, companyName, audience, ccNuel });
             },
+
           }),
           bulk_send_pitch: tool({
             description:
