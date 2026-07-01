@@ -1,5 +1,7 @@
 /**
  * Lusha API client. Used as a fallback to Apollo for executive contact enrichment.
+ * Supports dual API keys with automatic fallback on errors OR empty results
+ * (quota-exhausted Lusha keys often return 200 with an empty list).
  * Docs: https://www.lusha.com/docs/
  */
 
@@ -13,50 +15,29 @@ function keys(): string[] {
   return all;
 }
 
-// Status codes worth rotating keys on (quota/auth/plan/server issues).
-// We rotate on ANY non-2xx so a dead/exhausted key 1 always falls through to key 2.
-async function lushaFetch(path: string, init: RequestInit = {}) {
-  const allKeys = keys();
-  let lastErr: Error | null = null;
-  for (let i = 0; i < allKeys.length; i++) {
-    const apiKey = allKeys[i];
-    let res: Response;
-    try {
-      res = await fetch(`${LUSHA_BASE}${path}`, {
-        ...init,
-        headers: {
-          "Content-Type": "application/json",
-          accept: "application/json",
-          api_key: apiKey,
-          ...(init.headers || {}),
-        },
-      });
-    } catch (e) {
-      lastErr = e instanceof Error ? e : new Error(String(e));
-      if (i < allKeys.length - 1) continue;
-      throw lastErr;
-    }
-    const text = await res.text();
-    let data: unknown;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      data = text;
-    }
-    if (res.ok) return data as Record<string, unknown>;
-
-    const err = new Error(
-      `Lusha ${path} ${res.status}: ${typeof data === "string" ? data : JSON.stringify(data)}`,
-    );
-    lastErr = err;
-    // Rotate to the next key on ANY non-OK response if another key is available
-    if (i < allKeys.length - 1) continue;
-    throw err;
+async function lushaFetchWithKey(
+  apiKey: string,
+  path: string,
+  init: RequestInit = {},
+): Promise<{ ok: boolean; status: number; data: Record<string, unknown> | string }> {
+  const res = await fetch(`${LUSHA_BASE}${path}`, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      accept: "application/json",
+      api_key: apiKey,
+      ...(init.headers || {}),
+    },
+  });
+  const text = await res.text();
+  let data: Record<string, unknown> | string;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    data = text;
   }
-  throw lastErr ?? new Error(`Lusha ${path} failed`);
+  return { ok: res.ok, status: res.status, data };
 }
-
-
 
 export type LushaContact = {
   name?: string;
@@ -73,6 +54,8 @@ export type LushaContact = {
 /**
  * Search company employees by domain and (optional) job titles.
  * Returns enriched contacts including business emails when credits allow.
+ *
+ * Rotation: tries LUSHA_API_KEY first; on error OR empty results, retries with LUSHA_API_KEY_2.
  */
 export async function lushaCompanyEmployees(opts: {
   domain: string;
@@ -80,19 +63,46 @@ export async function lushaCompanyEmployees(opts: {
   seniority?: string[];
   limit?: number;
 }): Promise<LushaContact[]> {
+  const allKeys = keys();
+  let lastErr: unknown = null;
+
+  for (let i = 0; i < allKeys.length; i++) {
+    const key = allKeys[i];
+    const keyLabel = i === 0 ? "LUSHA_API_KEY" : `LUSHA_API_KEY_${i + 1}`;
+    try {
+      const results = await runCompanyEmployees(key, opts);
+      if (results.length > 0) {
+        console.log(`[lusha] ${keyLabel} returned ${results.length} contact(s)`);
+        return results;
+      }
+      console.log(`[lusha] ${keyLabel} returned 0 contacts — rotating to next key if available`);
+    } catch (e) {
+      lastErr = e;
+      console.log(`[lusha] ${keyLabel} error:`, e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  if (lastErr) {
+    // All keys failed — surface the last error so caller can log/handle.
+    throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
+  }
+  return [];
+}
+
+async function runCompanyEmployees(
+  apiKey: string,
+  opts: { domain: string; titles?: string[]; seniority?: string[]; limit?: number },
+): Promise<LushaContact[]> {
   const clean = opts.domain
     .replace(/^https?:\/\//, "")
     .replace(/^www\./, "")
     .split("/")[0];
 
-  // Step 1: prospecting search to get contact IDs
   const filters: Record<string, unknown> = {
     companies: { include: { domains: [clean] } },
   };
   if (opts.titles?.length) {
-    filters.contacts = {
-      include: { jobTitles: opts.titles },
-    };
+    filters.contacts = { include: { jobTitles: opts.titles } };
   }
   if (opts.seniority?.length) {
     filters.contacts = {
@@ -104,14 +114,21 @@ export async function lushaCompanyEmployees(opts: {
     };
   }
 
-  const search = await lushaFetch("/prospecting/contact/search", {
+  const searchRes = await lushaFetchWithKey(apiKey, "/prospecting/contact/search", {
     method: "POST",
     body: JSON.stringify({
       pages: { page: 0, size: Math.min(opts.limit ?? 10, 40) },
       filters,
     }),
   });
-
+  if (!searchRes.ok) {
+    throw new Error(
+      `Lusha search ${searchRes.status}: ${
+        typeof searchRes.data === "string" ? searchRes.data : JSON.stringify(searchRes.data)
+      }`,
+    );
+  }
+  const search = searchRes.data as Record<string, unknown>;
   const data = (search.data ?? []) as Array<Record<string, unknown>>;
   if (!data.length) return [];
 
@@ -121,25 +138,21 @@ export async function lushaCompanyEmployees(opts: {
     .slice(0, opts.limit ?? 10);
   if (!contactIds.length) return [];
 
-  // Step 2: enrich to reveal emails/phones (consumes credits)
   const requestId =
     (search.requestId as string | undefined) ??
     (search.metadata as { requestId?: string } | undefined)?.requestId;
-
   const enrichBody: Record<string, unknown> = { contactIds };
   if (requestId) enrichBody.requestId = requestId;
 
-  let enrichData: Record<string, unknown>;
-  try {
-    enrichData = await lushaFetch("/prospecting/contact/enrich", {
-      method: "POST",
-      body: JSON.stringify(enrichBody),
-    });
-  } catch (e) {
-    // Fall back to whatever info we got from search
+  const enrichRes = await lushaFetchWithKey(apiKey, "/prospecting/contact/enrich", {
+    method: "POST",
+    body: JSON.stringify(enrichBody),
+  });
+  if (!enrichRes.ok) {
+    // Enrich failed — return raw search data so we don't lose the hit
     return data.map(normalize);
   }
-
+  const enrichData = enrichRes.data as Record<string, unknown>;
   const contacts = (enrichData.contacts ?? enrichData.data ?? []) as Array<
     Record<string, unknown>
   >;
@@ -186,6 +199,7 @@ function normalize(c: Record<string, unknown>): LushaContact {
 
 /**
  * Enrich a single person by name + company domain.
+ * Rotates keys on error OR when no contact is returned.
  */
 export async function lushaPersonEnrich(opts: {
   firstName: string;
@@ -194,6 +208,7 @@ export async function lushaPersonEnrich(opts: {
   companyName?: string;
   linkedinUrl?: string;
 }): Promise<LushaContact | null> {
+  const allKeys = keys();
   const body: Record<string, unknown> = {
     contacts: [
       {
@@ -215,16 +230,34 @@ export async function lushaPersonEnrich(opts: {
     ],
   };
 
-  try {
-    const res = await lushaFetch("/v2/person", {
-      method: "POST",
-      body: JSON.stringify(body),
-    });
-    const contacts = (res.contacts ?? {}) as Record<string, Record<string, unknown>>;
-    const first = Object.values(contacts)[0];
-    if (!first) return null;
-    return normalize(first);
-  } catch {
-    return null;
+  for (let i = 0; i < allKeys.length; i++) {
+    const key = allKeys[i];
+    const keyLabel = i === 0 ? "LUSHA_API_KEY" : `LUSHA_API_KEY_${i + 1}`;
+    try {
+      const r = await lushaFetchWithKey(key, "/v2/person", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) {
+        console.log(`[lusha] ${keyLabel} person ${r.status} — rotating`);
+        continue;
+      }
+      const res = r.data as Record<string, unknown>;
+      const contacts = (res.contacts ?? {}) as Record<string, Record<string, unknown>>;
+      const first = Object.values(contacts)[0];
+      if (!first) {
+        console.log(`[lusha] ${keyLabel} person returned no contact — rotating`);
+        continue;
+      }
+      const normalized = normalize(first);
+      if (!normalized.email) {
+        console.log(`[lusha] ${keyLabel} person had no email — rotating`);
+        continue;
+      }
+      return normalized;
+    } catch (e) {
+      console.log(`[lusha] ${keyLabel} person error:`, e instanceof Error ? e.message : String(e));
+    }
   }
+  return null;
 }
