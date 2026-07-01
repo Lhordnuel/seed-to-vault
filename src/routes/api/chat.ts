@@ -154,15 +154,17 @@ HARD RULES (enforce in EVERY draft):
 - Open with a real personal reference (LinkedIn post / milestone / specific job posting title). Generic "Saw you're hiring" is BANNED.
 - Lead with the hiring pain BEFORE naming Vaultio.
 - Name ONE specific live role from their company — exact title.
-- Keep platform details light — one sentence on Vaultio, never a feature list.
-- Leave crypto / USDT / payment-rail specifics OUT unless the recipient asks. Say "pay remote talent" or "contractor payments", not "USDT escrow".
-- Always include "No call needed." near the CTA.
+- Vaultio value line must focus on role-specific assessment, scoring applicants, and surfacing top candidates — not a general feature list.
+- Include "Setup takes 5 minutes." after the Vaultio value line.
+- CTA must be: "Worth a try for your <Role> look?" tied to the named live role.
+- End with "No call." on its own line.
+- Leave crypto / USDT / payment-rail specifics OUT. This pitch does not mention payments at all unless the recipient asks.
 - Never pitch without a verified live role.
 
 CHANNEL / TONE ADJUSTMENTS:
 - Subject lines (email): simple and personal — "Quick idea for your [Role] hire" · "[Company] hiring — one thought" · "[Name], saw your [specific thing]".
-- LinkedIn DM: cut the opener preamble, jump straight to pain → Vaultio → CTA → "No call needed."
-- Formal/corporate recipient (enterprise, bank, consulting background): use "secure cross-border payments" instead of any payment-rail mention.
+- LinkedIn DM: cut the opener preamble, jump straight to pain → Vaultio → CTA → "No call."
+- Formal/corporate recipient (enterprise, bank, consulting background): keep tone crisp, no slang.
 
 
 
