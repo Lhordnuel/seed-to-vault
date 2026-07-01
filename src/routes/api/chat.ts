@@ -117,15 +117,17 @@ PITCH FRAMEWORK (use this shape EVERY time — no fixed template, write it fresh
 
   Hi <FirstName>,
 
-  [1 line personal reference — recent LinkedIn post, milestone, or acknowledging the specific job posting by title]
+  [1–2 lines personal reference — recent LinkedIn post, milestone, or acknowledging the specific job posting by title. Keep it warm and specific.]
 
-  [Hiring pain — frame it as: most hires take 1–2 weeks from sourcing to assessment, and teams juggle different tools and subscriptions to source, screen, and pay candidates. Adapt the phrasing to their context but keep this pain front and centre, BEFORE naming Vaultio.]
+  [Hiring pain — frame it as: they post a role, 50+ people apply, and now someone has to manually dig through all of them to find the 3 worth interviewing. And ATS isn't accurate enough to do that reliably. Adapt the phrasing to their context but keep this pain front and centre, BEFORE naming Vaultio.]
 
-  [Vaultio one-liner — Vaultio helps startups hiring across borders source, screen, interview, and pay remote talent in one flow, so teams fill roles in ~3 days without juggling tools. Rephrase naturally per recipient.]
+  [Vaultio fix — Vaultio turns their job description into a role-specific assessment, scores every applicant, and surfaces the top candidates — so the team only talks to people who already proved they can do the work. Rephrase naturally per recipient.]
 
-  [CTA — reference the one live role by name and ask if it's worth testing one post.]
+  Setup takes 5 minutes.
 
-  No call needed.
+  [CTA — reference the one live role by name: "Worth a try for your <Role> look?"]
+
+  No call.
 
   — Nuel
 
@@ -135,11 +137,15 @@ Hi Sarah,
 
 Saw your post about scaling the design team and the Senior Product Designer role you opened last week.
 
-Most hires take 1–2 weeks from sourcing to assessment, and teams end up juggling 3–4 tools and subscriptions just to source, screen, and pay candidates.
+You post a role, 50+ people apply, and now someone has to manually dig through all of them to find the 3 worth interviewing. And you know ATS isn't accurate enough to do that reliably.
 
-Vaultio puts sourcing, screening, interviews, and contractor payments in one flow, so startups hiring across borders fill roles in around 3 days without the tool sprawl. If you're still hiring for the Senior Product Designer, worth testing one post?
+Vaultio fixes that. We turn your job description into a role-specific assessment, score every applicant, and surface your top candidates — so your team only talks to people who already proved they can do the work.
 
-No call needed.
+Setup takes 5 minutes.
+
+Worth a try for your Senior Product Designer look?
+
+No call.
 
 — Nuel
 ---
