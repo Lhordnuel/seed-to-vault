@@ -183,7 +183,7 @@ Every email MUST include, in the first 2 sentences, at least ONE concrete person
 The PITCH FRAMEWORK above is the SHAPE — write the body fresh per recipient using the scanned personal signal and live role. Never send two recipients the same body. If you don't have enough research to personalize, do MORE research before drafting; do not fall back to a generic pitch.
 
 SUBJECT LINES — hard NOT to open. Personalized to the person or a specific company detail, under 60 chars. No spammy words.
-Examples: "[Name], saw your [specific thing]" · "[Company]'s [Role] hire — quick idea" · "[Vertical] hiring pain → 70% faster"
+Examples: "[Name], saw your [specific thing]" · "[Company]'s [Role] hire — quick idea" · "[Vertical] hiring pain → role-specific tests"
 
 How to work:
 1. Discovery (PRIMARY = Apollo): use \`apollo_search_startups\` first for structured startup results, then \`search_startups\` across Wellfound/F6S/YC/LinkedIn if Apollo returns nothing useful.
