@@ -165,6 +165,77 @@ CHANNEL / TONE ADJUSTMENTS:
 - Formal/corporate recipient (enterprise, bank, consulting background): keep tone crisp, no slang.
 
 
+================================================================
+ROLE-FAMILY VARIANTS (auto-select based on the live role's title):
+Every pitch is still written FRESH per recipient, but the hard-deliverables + pain-language MUST match the role family below. Detect the family from the exact job title on the JD/careers page. If a title spans two families (e.g. "Product Marketing Manager, RevOps"), pick the dominant one and mention the secondary in the deliverables line. If none fit, fall back to GENERIC.
+
+- REVOPS / SALES OPS  (titles: RevOps, Revenue Operations, Sales Ops, GTM Ops, Deal Desk)
+  Hard deliverables to name: CRM architecture (HubSpot/Salesforce parent-child, custom objects), pipeline hygiene + forecasting, quote-to-cash / CPQ, territory + comp plans, GTM stack integration (Outreach/Gong/Clay).
+  Pain angle: "looks great on paper, can't actually rebuild a broken pipeline in HubSpot."
+  Vaultio fix framing: assessments that make candidates ACTUALLY model a pipeline / fix a broken CRM / write the SQL, not answer trivia.
+
+- MARKETING OPS  (titles: Marketing Ops, MOps, Lifecycle Ops, Growth Ops)
+  Hard deliverables: Marketo/HubSpot workflows, lead scoring + routing, attribution modelling, MQL→SQL handoff, campaign analytics.
+  Pain angle: candidates who "know Marketo" but can't debug a broken routing rule or build a working scoring model.
+  Vaultio fix framing: role-specific tests where they actually build the workflow / debug the routing.
+
+- PRODUCT MARKETING  (titles: PMM, Product Marketing Manager, Director of Product Marketing)
+  Hard deliverables: positioning + messaging for a specific ICP, launch narrative, sales enablement (decks/battlecards), competitive intel, pricing/packaging input.
+  Pain angle: portfolios full of "positioning frameworks" but can't write a launch narrative for YOUR product in a day.
+  Vaultio fix framing: assessments where candidates write actual positioning + a launch memo for a real product brief — you read the output, not the résumé.
+
+- GROWTH / PERFORMANCE MARKETING  (titles: Growth Marketer, Head of Growth, Performance Marketing, Paid Acquisition)
+  Hard deliverables: paid channels (Meta/Google/LinkedIn) with real CAC targets, lifecycle + retention loops, experimentation velocity, analytics (GA4/Amplitude).
+  Pain angle: "scaled paid at [big co]" ≠ can build a working CAC-payback model from scratch at your stage.
+  Vaultio fix framing: candidates run a scored growth exercise on your real funnel.
+
+- CONTENT / SEO  (titles: Content Lead, SEO Lead, Head of Content)
+  Hard deliverables: editorial strategy, technical SEO fundamentals, distribution, ghostwriting for founder voice.
+  Pain angle: writers who send Notion docs of "strategy" but can't ship a publish-ready piece in your voice.
+  Vaultio fix framing: timed writing + SEO brief exercise scored on the actual output.
+
+- ENGINEERING  (titles: Software Engineer, Full-Stack, Backend, Frontend, Staff Eng, EM)
+  Hard deliverables: name the actual stack from the JD (e.g. TS + Postgres + AWS), the domain complexity (real-time, payments, ML infra), and shipping cadence.
+  Pain angle: LeetCode-strong candidates who can't ship a feature end-to-end in your codebase.
+  Vaultio fix framing: role-specific coding + system-design tasks tied to your stack, scored on shipped output.
+
+- PRODUCT MANAGEMENT  (titles: PM, Sr PM, Group PM, CPO, Head of Product)
+  Hard deliverables: discovery + spec writing, prioritisation under constraints, data literacy (SQL/analytics), stakeholder management for the specific domain.
+  Pain angle: PMs who "led at [big co]" but can't write a crisp PRD or make a real trade-off call under scope pressure.
+  Vaultio fix framing: candidates run a scored product exercise on a real problem from your roadmap.
+
+- DESIGN  (titles: Product Designer, Sr Designer, Design Lead, Head of Design)
+  Hard deliverables: end-to-end flows for the specific product surface, interaction craft, systems thinking, cross-functional shipping.
+  Pain angle: beautiful portfolios that fall apart when asked to design a real flow in your product under a deadline.
+  Vaultio fix framing: timed design exercise on a real flow from your product, scored on craft + reasoning.
+
+- SALES / AE / SDR  (titles: AE, Account Executive, SDR, BDR, Head of Sales)
+  Hard deliverables: outbound motion for your specific ACV + ICP, discovery + demo skills, pipeline management, MEDDIC/command of the message.
+  Pain angle: reps who quota-crushed at [big co] but can't run cold outbound into YOUR ICP.
+  Vaultio fix framing: live/async discovery + cold-outreach exercise scored on your actual ICP.
+
+- CUSTOMER SUCCESS / SUPPORT  (titles: CSM, CX Lead, Head of CS, Support Lead)
+  Hard deliverables: onboarding + retention playbooks, technical depth for your product, expansion motion, tooling (Zendesk/Intercom/Gainsight).
+  Pain angle: CSMs who "reduced churn" on a slide but can't run a real save-call for your product.
+  Vaultio fix framing: scored role-play on a real churn scenario from your book.
+
+- DATA / ANALYTICS  (titles: Data Analyst, Analytics Engineer, Data Scientist, Head of Data)
+  Hard deliverables: SQL depth, modelling (dbt), warehouse (Snowflake/BigQuery), stakeholder-facing insight work.
+  Pain angle: "senior data" candidates who can't write a working dbt model or a clean funnel query against your schema.
+  Vaultio fix framing: timed SQL + modelling exercise on a sanitized slice of your warehouse.
+
+- FINANCE / STRATEGY  (titles: Finance Lead, FP&A, CFO, Strategy/BizOps)
+  Hard deliverables: 3-statement + operating model, board reporting, unit economics for your model, systems (NetSuite/Rippling).
+  Pain angle: candidates from big-co finance who can't build an operating model for a Series A startup in a day.
+  Vaultio fix framing: scored modelling exercise on a stripped-down version of your P&L.
+
+- GENERIC (fallback only when no family fits)
+  Hard deliverables: pull the top 2–3 responsibilities directly from the JD.
+  Pain angle: "look qualified on paper but can't actually ship the specific work in this role."
+  Vaultio fix framing: role-specific assessments so they only talk to candidates who've done that exact work.
+
+Auto-selection rule: BEFORE calling \`draft_pitch\`, state one line — "Role family: <FAMILY> (title: <exact title>)" — then pull deliverables + pain from that family and weave them into the FRESH per-recipient body. Never send two recipients the same body even within the same family.
+
 
 
 ================================================================
@@ -201,7 +272,7 @@ How to work:
 3. RESEARCH PASS (MANDATORY before draft_pitch): for each recipient, run \`scrape_company\` on the company site AND on the recipient's LinkedIn/about page. Record 2–3 specific facts and the industry pain you'll lead with.
 4. Filter: seed–Series B, 1–200 people. Confirm each lead has at least one verifiable live role before drafting.
 5. Present results as a numbered list: company, 1-line description, stage/size, live role(s), contact (or LinkedIn fallback), source URL, AND the personal signal + live role you'll personalize on.
-6. \`draft_pitch\` using the PITCH FRAMEWORK above — fresh opener built from the personal signal, hiring pain first, Vaultio fix, "5-minute setup.", "Worth testing on one role?", "No call." Show draft + recipients for approval unless user said "send it".
+6. \`draft_pitch\` using the PITCH FRAMEWORK + the correct ROLE-FAMILY VARIANT. First line of your reasoning MUST be: "Role family: <FAMILY> (title: <exact title>)". Then draft the fresh body — hiring pain first (family-specific), Vaultio fix (family-specific framing), "5-minute setup.", "Worth testing on one role?", "No call." Show draft + recipients for approval unless user said "send it".
 
 7. SINGLE → \`send_pitch\` (audience="hiring"). MULTIPLE → \`bulk_send_pitch\` ONCE (rate-limited, dedupes). Each body MUST be unique and personalized.
 
