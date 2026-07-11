@@ -194,10 +194,35 @@ Every pitch is still written FRESH per recipient, but the hard-deliverables + pa
   Pain angle: writers who send Notion docs of "strategy" but can't ship a publish-ready piece in your voice.
   Vaultio fix framing: timed writing + SEO brief exercise scored on the actual output.
 
-- ENGINEERING  (titles: Software Engineer, Full-Stack, Backend, Frontend, Staff Eng, EM)
-  Hard deliverables: name the actual stack from the JD (e.g. TS + Postgres + AWS), the domain complexity (real-time, payments, ML infra), and shipping cadence.
-  Pain angle: LeetCode-strong candidates who can't ship a feature end-to-end in your codebase.
-  Vaultio fix framing: role-specific coding + system-design tasks tied to your stack, scored on shipped output.
+- BACKEND / INFRA / PLATFORM  (titles: Backend Engineer, Backend Software Engineer, API Engineer, Platform Engineer, Infrastructure Engineer, DevOps Engineer, SRE, Site Reliability Engineer, Staff Backend Engineer)
+  Hard deliverables: design APIs at scale, data model + query optimization, distributed systems, concurrency, observability, infra-as-code, CI/CD, security/performance trade-offs.
+  Pain angle: LeetCode-strong candidates who can't design a schema that won't fall over at real load or debug a production incident under pressure.
+  Vaultio fix framing: role-specific system-design + coding tasks on real API/data-model problems, scored on production thinking.
+
+- FULL-STACK / GENERAL SOFTWARE  (titles: Software Engineer, Full-Stack Engineer, Full Stack Engineer, Software Developer, Full-Stack Developer, Web Engineer, Generalist Engineer)
+  Hard deliverables: ship end-to-end features across the stack, connect frontend to backend, own a product surface, work inside an existing codebase.
+  Pain angle: candidates who can answer framework trivia but can't ship a full feature from DB query to UI in a real codebase.
+  Vaultio fix framing: end-to-end feature exercise using the company's actual stack, scored on shipped output.
+
+- FRONTEND / PRODUCT UI  (titles: Frontend Engineer, Frontend Developer, UI Engineer, React Engineer, Vue Engineer, Senior Frontend Engineer, Frontend Software Engineer)
+  Hard deliverables: complex UI interactions, performance, accessibility, state management, design-system adoption, component architecture, async data handling.
+  Pain angle: portfolios full of pretty mockups that fall apart when wired to real data, loading states, and edge cases.
+  Vaultio fix framing: frontend task on a real product surface from the company's app, scored on craft, performance, and robustness.
+
+- ML / AI / DATA ENGINEERING  (titles: ML Engineer, Machine Learning Engineer, AI Engineer, Data Engineer, MLOps Engineer, Applied Scientist, Data Scientist, Applied ML Engineer)
+  Hard deliverables: model serving pipelines, feature engineering, data pipelines, evaluation metrics, LLM/AI product integration, MLOps, cost/latency trade-offs.
+  Pain angle: candidates with Kaggle medals or research papers who can't productionize a model, reason about latency/cost, or ship an AI feature behind a real API.
+  Vaultio fix framing: scored ML/data task on a real company dataset or product use case, evaluated on production-readiness and business impact.
+
+- MOBILE  (titles: iOS Engineer, Android Engineer, Mobile Engineer, React Native Engineer, Flutter Engineer, Mobile Software Engineer, Senior Mobile Engineer)
+  Hard deliverables: ship native features, handle platform constraints, offline/sync, app performance, release cycles, mobile architecture patterns.
+  Pain angle: candidates who know Swift/Kotlin syntax but can't reason through a real mobile architecture or ship a feature end-to-end in a live app.
+  Vaultio fix framing: mobile feature exercise tied to the company's app, scored on architecture, UX, and shipping discipline.
+
+- EMBEDDED / HARDWARE / LOW-LEVEL  (titles: Embedded Engineer, Firmware Engineer, Hardware Engineer, Systems Engineer, Low-Level Engineer, Embedded Software Engineer)
+  Hard deliverables: bare-metal/RTOS firmware, hardware bring-up, C/C++ systems, real-time constraints, power/performance trade-offs, device-driver work.
+  Pain angle: candidates who list Arduino/Raspberry Pi projects but can't debug a real timing issue or ship production firmware.
+  Vaultio fix framing: role-specific embedded task on real hardware constraints, scored on systems thinking and debugging.
 
 - PRODUCT MANAGEMENT  (titles: PM, Sr PM, Group PM, CPO, Head of Product)
   Hard deliverables: discovery + spec writing, prioritisation under constraints, data literacy (SQL/analytics), stakeholder management for the specific domain.
