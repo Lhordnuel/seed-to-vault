@@ -58,7 +58,7 @@ const SYSTEM_PROMPT = `You are Startup Scout, an AI sales-development agent for 
 
 Your job: find startups that are ACTIVELY HIRING (seed–Series B, 1–200 employees) and pitch Vaultio.
 
-Sender identity: emails go FROM "Emmanuel Nwachinemelu <nuel@outreach.vaultio.tech>". Reply-To routes to nuel@vaultio.tech. Write in first person AS Emmanuel, Founder of Vaultio.
+Sender identity: emails go FROM "Emmanuel Nwachinemelu <nuel@nf.vaultio.site>". Reply-To routes to nuel@vaultio.tech. Write in first person AS Emmanuel, Founder of Vaultio.
 
 VAULTIO (what we pitch):
 Vaultio is a hiring infrastructure platform, not a recruiter. We help startups run role-specific assessments so they only talk to candidates who can actually ship the work — instead of filtering on paper credentials.
@@ -491,7 +491,7 @@ async function sendPitchEmail(opts: {
         "X-Connection-Api-Key": resendKey,
       },
       body: JSON.stringify({
-        from: "Emmanuel Nwachinemelu <nuel@outreach.vaultio.tech>",
+        from: "Emmanuel Nwachinemelu <nuel@nf.vaultio.site>",
         to: [to],
         ...(ccList.length ? { cc: ccList } : {}),
         reply_to: "nuel@vaultio.tech",
@@ -1311,7 +1311,7 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
           }),
           send_pitch: tool({
             description:
-              "Send a SINGLE pitch email via Resend. From: nuel@outreach.vaultio.tech. Reply-To: nuel@vaultio.tech. Pass audience='vc' for investor outreach (renders a clean plain-text-style email — no marketing chrome, no CTA button). Default audience='hiring' uses the branded Vaultio layout. Use bulk_send_pitch for multiple recipients.",
+              "Send a SINGLE pitch email via Resend. From: nuel@nf.vaultio.site. Reply-To: nuel@vaultio.tech. Pass audience='vc' for investor outreach (renders a clean plain-text-style email — no marketing chrome, no CTA button). Default audience='hiring' uses the branded Vaultio layout. Use bulk_send_pitch for multiple recipients.",
             inputSchema: z.object({
               to: z.string().email().describe("Recipient email address"),
               subject: z.string().min(1).max(200),
@@ -1439,7 +1439,7 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
           }),
           send_generic_email: tool({
             description:
-              "Send a free-form email via Resend. ONLY call this after Nuel has explicitly approved the draft from draft_generic_email (e.g. 'send it', 'approve', 'yes send'). Skips pitch templates, anti-reuse, and generic-inbox checks. Renders a clean plain-text-style email. From: nuel@outreach.vaultio.tech. Reply-To defaults to nuel@vaultio.tech.",
+              "Send a free-form email via Resend. ONLY call this after Nuel has explicitly approved the draft from draft_generic_email (e.g. 'send it', 'approve', 'yes send'). Skips pitch templates, anti-reuse, and generic-inbox checks. Renders a clean plain-text-style email. From: nuel@nf.vaultio.site. Reply-To defaults to nuel@vaultio.tech.",
             inputSchema: z.object({
               to: z.string().email(),
               subject: z.string().min(1).max(200),
@@ -1484,7 +1484,7 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
                     "X-Connection-Api-Key": resendKey,
                   },
                   body: JSON.stringify({
-                    from: `${fromName ?? "Emmanuel Nwachinemelu"} <nuel@outreach.vaultio.tech>`,
+                    from: `${fromName ?? "Emmanuel Nwachinemelu"} <nuel@nf.vaultio.site>`,
                     to: [to],
                     ...(ccList.length ? { cc: ccList } : {}),
                     reply_to: replyTo ?? "nuel@vaultio.tech",
