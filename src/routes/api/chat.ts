@@ -117,52 +117,47 @@ PITCH FRAMEWORK (use this shape EVERY time — no fixed template, write it fresh
 
   Hi <FirstName>,
 
-  [Open with a specific personal/company observation: name one exact role you saw at their company, then 2–3 concrete hard things that role must actually ship (stack, workflows, domain complexity).]
+  [Open with the screening pain, tied to a specific live role/context you researched: they're seeing AI-polished CVs that look perfect on paper — then burning 20+ hours in first-round interviews only to find the candidate can't ship.]
 
-  [Hiring pain — frame it as: most candidates look qualified on paper but can't actually ship that. Adapt the phrasing to their context but keep this pain front and centre, BEFORE naming Vaultio.]
+  [Vaultio fix — we generate a UNIQUE assessment from each candidate's actual CV and their job req, testing candidates against their own claims. No generic question bank. They filter out inflated resumes before the call and only interview people who can actually build.]
 
-  [Vaultio fix — Vaultio runs role-specific assessments so they only talk to people who've built the exact things the role requires. Rephrase naturally per recipient.]
+  [Pilot line — "I'm onboarding a handful of <segment, e.g. NYC / seed-stage / YC> startups to our pilot personally — free credits, no contract, 20-minute setup."]
 
-  5-minute setup.
+  Worth a brief call this week?
 
-  [CTA — "Worth testing on one role?"]
-
-  No call.
-
-  — Nuel
+  Emmanuel
 
 EXAMPLE (shape only — NEVER reuse this wording):
 ---
-Hi Chris,
+Hi Alexis,
 
-Saw your fractional RevOps role at Anagram. Multi-location hierarchies, four GTM motions, mixed pricing through one HubSpot stack. Most candidates look qualified on paper but can't actually ship that.
+You're probably seeing AI-polished CVs that look perfect on paper — then burning 20+ hours in first-round interviews only to find the candidate can't ship.
 
-Vaultio fixes that. We run role-specific assessments so you only talk to people who've built parent-child HubSpot in healthcare, shipped Stripe integrations with non-standard billing, and know when Zapier is enough.
+Vaultio stops both. We generate a unique assessment from each candidate's actual CV and your job req, testing them against their own claims. No generic bank. You filter out the inflated resumes before the call, and only interview people who can actually build.
 
-5-minute setup.
+I'm onboarding a handful of NYC startups to our pilot personally — free credits, no contract, 20-minute setup.
 
-Worth testing on one role?
+Worth a brief call this week?
 
-No call.
-
-— Nuel
+Emmanuel
 ---
 
 HARD RULES (enforce in EVERY draft):
-- Open with a real personal reference: exact role title + company + 2–3 concrete hard deliverables that role must ship. Generic "Saw you're hiring" is BANNED.
-- Lead with the hiring pain BEFORE naming Vaultio.
-- Name ONE specific live role from their company — exact title.
-- Vaultio value line must focus on role-specific assessments that filter for people who can ship the specific work, not a general feature list.
-- Include "5-minute setup." on its own line after the Vaultio value line.
-- CTA must be: "Worth testing on one role?"
-- End with "No call." on its own line.
-- Leave crypto / USDT / payment-rail specifics OUT. This pitch does not mention payments at all unless the recipient asks.
+- Lead with the AI-polished-CV / wasted-interview-hours pain BEFORE naming Vaultio.
+- Ground the pain in real research: reference their live role, stack, or hiring context so it never reads generic. "Saw you're hiring" alone is BANNED.
+- Vaultio value line must say the assessment is generated from the candidate's own CV + the job req (tests them against their own claims), not a generic question bank.
+- Include the pilot line: personally onboarding a handful of <relevant segment> startups — free credits, no contract, 20-minute setup.
+- CTA must be: "Worth a brief call this week?"
+- Sign off "Emmanuel" — do NOT use the old "No call." line or "— Nuel".
+- Keep it short: 4 short paragraphs max, plain language, no bullet lists, no buttons.
+- Leave crypto / USDT / payment-rail specifics OUT unless the recipient asks.
 - Never pitch without a verified live role.
 
 CHANNEL / TONE ADJUSTMENTS:
 - Subject lines (email): simple and personal — "Quick idea for your [Role] hire" · "[Company] hiring — one thought" · "[Name], saw your [specific thing]".
-- LinkedIn DM: cut the opener preamble, jump straight to pain → Vaultio → CTA → "No call."
+- LinkedIn DM: cut the opener preamble, jump straight to pain → Vaultio fix → pilot → "Worth a brief call this week?"
 - Formal/corporate recipient (enterprise, bank, consulting background): keep tone crisp, no slang.
+
 
 
 ================================================================
