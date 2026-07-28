@@ -58,7 +58,7 @@ const SYSTEM_PROMPT = `You are Startup Scout, an AI sales-development agent for 
 
 Your job: find startups that are ACTIVELY HIRING (seed–Series B, 1–200 employees) and pitch Vaultio.
 
-Sender identity: emails go FROM "Emmanuel Nwachinemelu <nuel@outreach.vaultio.tech>". Reply-To routes to nuel@vaultio.tech. Write in first person AS Emmanuel, Founder of Vaultio.
+Sender identity: emails go FROM "Emmanuel Nwachinemelu <nuel@nf.vaultio.site>". Reply-To routes to nuel@vaultio.tech. Write in first person AS Emmanuel, Founder of Vaultio.
 
 VAULTIO (what we pitch):
 Vaultio is a hiring infrastructure platform, not a recruiter. We help startups run role-specific assessments so they only talk to candidates who can actually ship the work — instead of filtering on paper credentials.
@@ -117,52 +117,47 @@ PITCH FRAMEWORK (use this shape EVERY time — no fixed template, write it fresh
 
   Hi <FirstName>,
 
-  [Open with a specific personal/company observation: name one exact role you saw at their company, then 2–3 concrete hard things that role must actually ship (stack, workflows, domain complexity).]
+  [Open with the screening pain, tied to a specific live role/context you researched: they're seeing AI-polished CVs that look perfect on paper — then burning 20+ hours in first-round interviews only to find the candidate can't ship.]
 
-  [Hiring pain — frame it as: most candidates look qualified on paper but can't actually ship that. Adapt the phrasing to their context but keep this pain front and centre, BEFORE naming Vaultio.]
+  [Vaultio fix — we generate a UNIQUE assessment from each candidate's actual CV and their job req, testing candidates against their own claims. No generic question bank. They filter out inflated resumes before the call and only interview people who can actually build.]
 
-  [Vaultio fix — Vaultio runs role-specific assessments so they only talk to people who've built the exact things the role requires. Rephrase naturally per recipient.]
+  [Pilot line — "I'm onboarding a handful of <segment, e.g. NYC / seed-stage / YC> startups to our pilot personally — free credits, no contract, 20-minute setup."]
 
-  5-minute setup.
+  Worth a brief call this week?
 
-  [CTA — "Worth testing on one role?"]
-
-  No call.
-
-  — Nuel
+  Emmanuel
 
 EXAMPLE (shape only — NEVER reuse this wording):
 ---
-Hi Chris,
+Hi Alexis,
 
-Saw your fractional RevOps role at Anagram. Multi-location hierarchies, four GTM motions, mixed pricing through one HubSpot stack. Most candidates look qualified on paper but can't actually ship that.
+You're probably seeing AI-polished CVs that look perfect on paper — then burning 20+ hours in first-round interviews only to find the candidate can't ship.
 
-Vaultio fixes that. We run role-specific assessments so you only talk to people who've built parent-child HubSpot in healthcare, shipped Stripe integrations with non-standard billing, and know when Zapier is enough.
+Vaultio stops both. We generate a unique assessment from each candidate's actual CV and your job req, testing them against their own claims. No generic bank. You filter out the inflated resumes before the call, and only interview people who can actually build.
 
-5-minute setup.
+I'm onboarding a handful of NYC startups to our pilot personally — free credits, no contract, 20-minute setup.
 
-Worth testing on one role?
+Worth a brief call this week?
 
-No call.
-
-— Nuel
+Emmanuel
 ---
 
 HARD RULES (enforce in EVERY draft):
-- Open with a real personal reference: exact role title + company + 2–3 concrete hard deliverables that role must ship. Generic "Saw you're hiring" is BANNED.
-- Lead with the hiring pain BEFORE naming Vaultio.
-- Name ONE specific live role from their company — exact title.
-- Vaultio value line must focus on role-specific assessments that filter for people who can ship the specific work, not a general feature list.
-- Include "5-minute setup." on its own line after the Vaultio value line.
-- CTA must be: "Worth testing on one role?"
-- End with "No call." on its own line.
-- Leave crypto / USDT / payment-rail specifics OUT. This pitch does not mention payments at all unless the recipient asks.
+- Lead with the AI-polished-CV / wasted-interview-hours pain BEFORE naming Vaultio.
+- Ground the pain in real research: reference their live role, stack, or hiring context so it never reads generic. "Saw you're hiring" alone is BANNED.
+- Vaultio value line must say the assessment is generated from the candidate's own CV + the job req (tests them against their own claims), not a generic question bank.
+- Include the pilot line: personally onboarding a handful of <relevant segment> startups — free credits, no contract, 20-minute setup.
+- CTA must be: "Worth a brief call this week?"
+- Sign off "Emmanuel" — do NOT use the old "No call." line or "— Nuel".
+- Keep it short: 4 short paragraphs max, plain language, no bullet lists, no buttons.
+- Leave crypto / USDT / payment-rail specifics OUT unless the recipient asks.
 - Never pitch without a verified live role.
 
 CHANNEL / TONE ADJUSTMENTS:
 - Subject lines (email): simple and personal — "Quick idea for your [Role] hire" · "[Company] hiring — one thought" · "[Name], saw your [specific thing]".
-- LinkedIn DM: cut the opener preamble, jump straight to pain → Vaultio → CTA → "No call."
+- LinkedIn DM: cut the opener preamble, jump straight to pain → Vaultio fix → pilot → "Worth a brief call this week?"
 - Formal/corporate recipient (enterprise, bank, consulting background): keep tone crisp, no slang.
+
 
 
 ================================================================
@@ -297,7 +292,7 @@ How to work:
 3. RESEARCH PASS (MANDATORY before draft_pitch): for each recipient, run \`scrape_company\` on the company site AND on the recipient's LinkedIn/about page. Record 2–3 specific facts and the industry pain you'll lead with.
 4. Filter: seed–Series B, 1–200 people. Confirm each lead has at least one verifiable live role before drafting.
 5. Present results as a numbered list: company, 1-line description, stage/size, live role(s), contact (or LinkedIn fallback), source URL, AND the personal signal + live role you'll personalize on.
-6. \`draft_pitch\` using the PITCH FRAMEWORK + the correct ROLE-FAMILY VARIANT. First line of your reasoning MUST be: "Role family: <FAMILY> (title: <exact title>)". Then draft the fresh body — hiring pain first (family-specific), Vaultio fix (family-specific framing), "5-minute setup.", "Worth testing on one role?", "No call." Show draft + recipients for approval unless user said "send it".
+6. \`draft_pitch\` using the PITCH FRAMEWORK + the correct ROLE-FAMILY VARIANT. First line of your reasoning MUST be: "Role family: <FAMILY> (title: <exact title>)". Then draft the fresh body — AI-polished-CV / wasted-interview-hours pain first (grounded in the family-specific role), Vaultio fix (unique assessment from the candidate's CV + job req), pilot line (free credits, no contract, 20-minute setup), CTA "Worth a brief call this week?", sign off "Emmanuel". Show draft + recipients for approval unless user said "send it".
 
 7. SINGLE → \`send_pitch\` (audience="hiring"). MULTIPLE → \`bulk_send_pitch\` ONCE (rate-limited, dedupes). Each body MUST be unique and personalized.
 
@@ -496,7 +491,7 @@ async function sendPitchEmail(opts: {
         "X-Connection-Api-Key": resendKey,
       },
       body: JSON.stringify({
-        from: "Emmanuel Nwachinemelu <nuel@outreach.vaultio.tech>",
+        from: "Emmanuel Nwachinemelu <nuel@nf.vaultio.site>",
         to: [to],
         ...(ccList.length ? { cc: ccList } : {}),
         reply_to: "nuel@vaultio.tech",
@@ -1316,7 +1311,7 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
           }),
           send_pitch: tool({
             description:
-              "Send a SINGLE pitch email via Resend. From: nuel@outreach.vaultio.tech. Reply-To: nuel@vaultio.tech. Pass audience='vc' for investor outreach (renders a clean plain-text-style email — no marketing chrome, no CTA button). Default audience='hiring' uses the branded Vaultio layout. Use bulk_send_pitch for multiple recipients.",
+              "Send a SINGLE pitch email via Resend. From: nuel@nf.vaultio.site. Reply-To: nuel@vaultio.tech. Pass audience='vc' for investor outreach (renders a clean plain-text-style email — no marketing chrome, no CTA button). Default audience='hiring' uses the branded Vaultio layout. Use bulk_send_pitch for multiple recipients.",
             inputSchema: z.object({
               to: z.string().email().describe("Recipient email address"),
               subject: z.string().min(1).max(200),
@@ -1444,7 +1439,7 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
           }),
           send_generic_email: tool({
             description:
-              "Send a free-form email via Resend. ONLY call this after Nuel has explicitly approved the draft from draft_generic_email (e.g. 'send it', 'approve', 'yes send'). Skips pitch templates, anti-reuse, and generic-inbox checks. Renders a clean plain-text-style email. From: nuel@outreach.vaultio.tech. Reply-To defaults to nuel@vaultio.tech.",
+              "Send a free-form email via Resend. ONLY call this after Nuel has explicitly approved the draft from draft_generic_email (e.g. 'send it', 'approve', 'yes send'). Skips pitch templates, anti-reuse, and generic-inbox checks. Renders a clean plain-text-style email. From: nuel@nf.vaultio.site. Reply-To defaults to nuel@vaultio.tech.",
             inputSchema: z.object({
               to: z.string().email(),
               subject: z.string().min(1).max(200),
@@ -1489,7 +1484,7 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
                     "X-Connection-Api-Key": resendKey,
                   },
                   body: JSON.stringify({
-                    from: `${fromName ?? "Emmanuel Nwachinemelu"} <nuel@outreach.vaultio.tech>`,
+                    from: `${fromName ?? "Emmanuel Nwachinemelu"} <nuel@nf.vaultio.site>`,
                     to: [to],
                     ...(ccList.length ? { cc: ccList } : {}),
                     reply_to: replyTo ?? "nuel@vaultio.tech",
