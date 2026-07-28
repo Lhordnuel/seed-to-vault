@@ -292,7 +292,7 @@ How to work:
 3. RESEARCH PASS (MANDATORY before draft_pitch): for each recipient, run \`scrape_company\` on the company site AND on the recipient's LinkedIn/about page. Record 2–3 specific facts and the industry pain you'll lead with.
 4. Filter: seed–Series B, 1–200 people. Confirm each lead has at least one verifiable live role before drafting.
 5. Present results as a numbered list: company, 1-line description, stage/size, live role(s), contact (or LinkedIn fallback), source URL, AND the personal signal + live role you'll personalize on.
-6. \`draft_pitch\` using the PITCH FRAMEWORK + the correct ROLE-FAMILY VARIANT. First line of your reasoning MUST be: "Role family: <FAMILY> (title: <exact title>)". Then draft the fresh body — hiring pain first (family-specific), Vaultio fix (family-specific framing), "5-minute setup.", "Worth testing on one role?", "No call." Show draft + recipients for approval unless user said "send it".
+6. \`draft_pitch\` using the PITCH FRAMEWORK + the correct ROLE-FAMILY VARIANT. First line of your reasoning MUST be: "Role family: <FAMILY> (title: <exact title>)". Then draft the fresh body — AI-polished-CV / wasted-interview-hours pain first (grounded in the family-specific role), Vaultio fix (unique assessment from the candidate's CV + job req), pilot line (free credits, no contract, 20-minute setup), CTA "Worth a brief call this week?", sign off "Emmanuel". Show draft + recipients for approval unless user said "send it".
 
 7. SINGLE → \`send_pitch\` (audience="hiring"). MULTIPLE → \`bulk_send_pitch\` ONCE (rate-limited, dedupes). Each body MUST be unique and personalized.
 
