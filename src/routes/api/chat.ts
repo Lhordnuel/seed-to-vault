@@ -518,11 +518,11 @@ export const Route = createFileRoute("/api/chat")({
       POST: async ({ request }) => {
         const { messages } = (await request.json()) as { messages: UIMessage[] };
 
-        const apiKey = process.env.LOVABLE_API_KEY;
-        if (!apiKey) {
-          return new Response("Missing LOVABLE_API_KEY", { status: 500 });
+        const model = getBedrockModel();
+        if (!model) {
+          return new Response("Missing BEDROCK_API_KEY", { status: 500 });
         }
-        const gateway = createLovableAiGatewayProvider(apiKey);
+
 
         const tools = {
           apollo_search_startups: tool({
