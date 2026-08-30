@@ -36,11 +36,12 @@ import logo from "@/assets/logo.png";
 const transport = new DefaultChatTransport({ api: "/api/chat" });
 
 export function ChatWindow({ thread, onOpenSidebar }: { thread: Thread; onOpenSidebar?: () => void }) {
-  const { messages, sendMessage, status, stop } = useChat({
+  const { messages, sendMessage, status, stop, error } = useChat({
     id: thread.id,
     messages: thread.messages,
     transport,
   });
+
 
   // Persist on change
   const lastPersisted = useRef<number>(0);
