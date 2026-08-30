@@ -1528,9 +1528,26 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
           messages: await convertToModelMessages(messages),
           tools,
           stopWhen: stepCountIs(50),
+          onError: ({ error }) => {
+            console.error("[chat] streamText error:", error);
+          },
         });
 
-        return result.toUIMessageStreamResponse({ originalMessages: messages });
+        return result.toUIMessageStreamResponse({
+          originalMessages: messages,
+          onError: (error) => {
+            const e = error as { statusCode?: number; status?: number; message?: string; name?: string };
+            const code = e?.statusCode ?? e?.status;
+            const msg = e?.message ?? String(error);
+            console.error("[chat] stream failed:", code, msg);
+            if (code === 403 || /forbidden|accessdenied|not authorized/i.test(msg)) {
+              return `AI provider rejected the request (403). Check BEDROCK_API_KEY, BEDROCK_REGION (${process.env.BEDROCK_REGION || "us-west-2"}) and that model access is enabled for ${process.env.BEDROCK_MODEL_ID || "claude-haiku-4-5"}. Details: ${msg}`;
+            }
+            if (code === 429) return `Rate limited by the AI provider. Try again shortly. Details: ${msg}`;
+            return `Chat failed: ${msg}`;
+          },
+        });
+
       },
     },
   },
