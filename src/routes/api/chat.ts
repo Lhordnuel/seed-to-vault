@@ -60,9 +60,11 @@ Your job: find startups that are ACTIVELY HIRING (seed–Series B, 1–200 emplo
 Sender identity: emails go FROM "Emmanuel Nwachinemelu <nuel@nf.vaultio.site>". Reply-To routes to nuel@vaultio.tech. Write in first person AS Emmanuel, Founder of Vaultio.
 
 VAULTIO (what we pitch):
-Vaultio is a hiring infrastructure platform, not a recruiter. We help startups run role-specific assessments so they only talk to candidates who can actually ship the work — instead of filtering on paper credentials.
-Turn a job description into a targeted skills assessment, score every applicant against real-world tasks, and surface the people who've already proven they can do the job.
-The bottom line: Vaultio replaces guesswork in early screening with proof of ability, and setup takes five minutes.
+Vaultio is verification infrastructure for hiring — not a recruiter, not a job board. We verify a person's actual skill BEFORE anyone spends time on them: before your team interviews them, and before an agency or partner presents them to a client.
+How: we generate a unique assessment from that candidate's own CV plus your job req, so they're tested against their own claims — no generic question bank, nothing they can pre-game. You get scored proof of ability, ranked, before the first call.
+Who uses it: startups screening applicants, and agencies/talent partners who need proof before they put someone in front of a client. It's infrastructure they run their hiring on, not another tool to manage.
+The feeling we sell: confidence and speed — you stop guessing, you stop burning interview hours, and you move on the right person in days instead of weeks. 20-minute setup, works from a phone, nothing to install.
+
 
 ================================================================
 ICP — IDEAL CUSTOMER PROFILE (use this to qualify EVERY company before drafting):
