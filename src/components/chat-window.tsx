@@ -36,11 +36,12 @@ import logo from "@/assets/logo.png";
 const transport = new DefaultChatTransport({ api: "/api/chat" });
 
 export function ChatWindow({ thread, onOpenSidebar }: { thread: Thread; onOpenSidebar?: () => void }) {
-  const { messages, sendMessage, status, stop } = useChat({
+  const { messages, sendMessage, status, stop, error } = useChat({
     id: thread.id,
     messages: thread.messages,
     transport,
   });
+
 
   // Persist on change
   const lastPersisted = useRef<number>(0);
@@ -161,6 +162,15 @@ export function ChatWindow({ thread, onOpenSidebar }: { thread: Thread; onOpenSi
                 </MessageContent>
               </Message>
             ) : null}
+            {error ? (
+              <div className="mx-auto w-full max-w-2xl rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                <div className="font-medium">The bot couldn’t respond</div>
+                <div className="mt-1 whitespace-pre-wrap break-words opacity-90">
+                  {error.message || "Unknown error"}
+                </div>
+              </div>
+            ) : null}
+
           </ConversationContent>
           <ConversationScrollButton />
         </Conversation>
