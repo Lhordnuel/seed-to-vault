@@ -1505,10 +1505,8 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
           }),
         };
 
-        const model = withFallback(
-          gateway("google/gemini-3-flash-preview"),
-          getBedrockModel(),
-        );
+
+
 
         const result = streamText({
           model,
