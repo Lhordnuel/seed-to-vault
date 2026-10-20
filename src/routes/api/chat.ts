@@ -27,6 +27,11 @@ import { hunterDomainSearch, hunterEmailFinder } from "@/lib/hunter.server";
 import { prospeoDomainSearch, prospeoEmailFinder } from "@/lib/prospeo.server";
 import { pdlPersonEnrich, pdlPersonSearch } from "@/lib/pdl.server";
 import { tombaDomainSearch, tombaEmailFinder } from "@/lib/tomba.server";
+import {
+  isContactOptedOut,
+  saveSourcedContacts,
+} from "@/lib/sourced-records.server";
+import { hasValidAccessSession } from "@/lib/access-session.server";
 
 // CC configuration — toggle CC'ing nuel@vaultio.tech per environment or per call.
 // Env var CC_NUEL_ENABLED ("true"/"false", default "true") controls the default.
@@ -305,6 +310,7 @@ How to work:
 3. RESEARCH PASS (MANDATORY before draft_pitch): for each recipient, run \`scrape_company\` on the company site AND on the recipient's LinkedIn/about page. Record 2–3 specific facts and the industry pain you'll lead with.
 4. Filter: seed–Series B, 1–200 people. Confirm each lead has at least one verifiable live role before drafting.
 5. Present results as a numbered list: company, 1-line description, stage/size, live role(s), contact (or LinkedIn fallback), source URL, AND the personal signal + live role you'll personalize on.
+5a. Save sourced company/contact records with \`save_sourced_contacts\` after discovery. Save only contacts returned by a provider or verified public source; include the actual source provider and source URL when available. Do not save inferred email guesses as verified addresses.
 6. \`draft_pitch\` using the PITCH FRAMEWORK + the correct ROLE-FAMILY VARIANT. First line of your reasoning MUST be: "Role family: <FAMILY> (title: <exact title>)". Then draft the fresh body — AI-polished-CV / wasted-interview-hours pain first (grounded in the family-specific role), Vaultio fix (unique assessment from the candidate's CV + job req), pilot line (free credits, no contract, 20-minute setup), CTA "Worth a brief call this week?", sign off "Emmanuel". Show draft + recipients for approval unless user said "send it".
 
 7. SINGLE → \`send_pitch\` (audience="hiring"). MULTIPLE → \`bulk_send_pitch\` ONCE (rate-limited, dedupes). Each body MUST be unique and personalized.
@@ -444,6 +450,13 @@ async function sendPitchEmail(opts: {
       error: "Blocked: generic/role-based inbox. Use a named person's work email instead.",
     };
   }
+  try {
+    if (await isContactOptedOut(to)) {
+      return { sent: false, to, subject, error: "Blocked: this contact has opted out." };
+    }
+  } catch (e) {
+    return { sent: false, to, subject, error: (e as Error).message };
+  }
   const reuse = checkReuse(subject, body);
   if (!reuse.ok) {
     return { sent: false, to, subject, error: reuse.reason };
@@ -530,6 +543,9 @@ export const Route = createFileRoute("/api/chat")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        if (!hasValidAccessSession(request)) {
+          return new Response("Unauthorized", { status: 401 });
+        }
         const { messages } = (await request.json()) as { messages: UIMessage[] };
 
         const model = getBedrockModel();
@@ -1046,6 +1062,62 @@ export const Route = createFileRoute("/api/chat")({
               }
             },
           }),
+          save_sourced_contacts: tool({
+            description:
+              "Persist discovered company and contact records in the configured Supabase database, including their source provider and source URL. Only save records returned by a provider or verified public source; do not mark inferred email guesses as verified.",
+            inputSchema: z.object({
+              company: z.object({
+                name: z.string().min(1),
+                domain: z.string().min(1),
+                websiteUrl: z.string().url().refine((url) => /^https?:\/\//i.test(url)).optional(),
+                linkedinUrl: z.string().url().refine((url) => /^https?:\/\//i.test(url)).optional(),
+                stage: z.string().optional(),
+                employeeCount: z.number().int().nonnegative().optional(),
+                industry: z.string().optional(),
+              }),
+              provider: z.enum([
+                "apollo",
+                "firecrawl",
+                "fullenrich",
+                "hunter",
+                "linkedin",
+                "lusha",
+                "pdl",
+                "prospeo",
+                "tomba",
+                "wellfound",
+                "f6s",
+                "yc",
+              ]),
+              contacts: z
+                .array(
+                  z
+                    .object({
+                      fullName: z.string().min(1),
+                      title: z.string().optional(),
+                      email: z.string().email().optional(),
+                      emailStatus: z
+                        .enum(["unknown", "valid", "catchall", "invalid"])
+                        .optional(),
+                      linkedinUrl: z.string().url().refine((url) => /^https?:\/\//i.test(url)).optional(),
+                      sourceUrl: z.string().url().refine((url) => /^https?:\/\//i.test(url)).optional(),
+                      externalRecordId: z.string().optional(),
+                    })
+                    .refine((contact) => contact.email || contact.linkedinUrl, {
+                      message: "A contact must include an email address or LinkedIn URL.",
+                    }),
+                )
+                .min(1)
+                .max(100),
+            }),
+            execute: async (input) => {
+              try {
+                return await saveSourcedContacts(input);
+              } catch (e) {
+                return { error: (e as Error).message, saved: 0 };
+              }
+            },
+          }),
           hunter_domain_search: tool({
             description:
               "Hunter.io domain search. Returns all known emails for a company domain with role/seniority/department metadata. Great for finding HR/People/Talent contacts at 51–200 companies (filter department='hr') or executives (seniority='executive'). Use as a primary lead source alongside Apollo.",
@@ -1471,6 +1543,13 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
             execute: async ({ to, subject, body, cc, replyTo, fromName, approved, ccNuel }) => {
               if (!approved) {
                 return { sent: false, error: "Approval required. Show the draft and wait for Nuel to say 'send it'." };
+              }
+              try {
+                if (await isContactOptedOut(to)) {
+                  return { sent: false, to, subject, error: "Blocked: this contact has opted out." };
+                }
+              } catch (e) {
+                return { sent: false, to, subject, error: (e as Error).message };
               }
               const resendKey = process.env.RESEND_API_KEY;
               const lovableKey = process.env.LOVABLE_API_KEY;

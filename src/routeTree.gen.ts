@@ -9,13 +9,21 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ContactsRouteImport } from './routes/contacts'
 import { Route as ThreadIdRouteImport } from './routes/$threadId'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiSessionRouteImport } from './routes/api/session'
 import { Route as ApiEmailStatusRouteImport } from './routes/api/email-status'
 import { Route as ApiEmailEventsRouteImport } from './routes/api/email-events'
+import { Route as ApiContactsRouteImport } from './routes/api/contacts'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiPublicResendWebhookRouteImport } from './routes/api/public/resend-webhook'
 
+const ContactsRoute = ContactsRouteImport.update({
+  id: '/contacts',
+  path: '/contacts',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ThreadIdRoute = ThreadIdRouteImport.update({
   id: '/$threadId',
   path: '/$threadId',
@@ -26,6 +34,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSessionRoute = ApiSessionRouteImport.update({
+  id: '/api/session',
+  path: '/api/session',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiEmailStatusRoute = ApiEmailStatusRouteImport.update({
   id: '/api/email-status',
   path: '/api/email-status',
@@ -34,6 +47,11 @@ const ApiEmailStatusRoute = ApiEmailStatusRouteImport.update({
 const ApiEmailEventsRoute = ApiEmailEventsRouteImport.update({
   id: '/api/email-events',
   path: '/api/email-events',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiContactsRoute = ApiContactsRouteImport.update({
+  id: '/api/contacts',
+  path: '/api/contacts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiChatRoute = ApiChatRouteImport.update({
@@ -50,26 +68,35 @@ const ApiPublicResendWebhookRoute = ApiPublicResendWebhookRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$threadId': typeof ThreadIdRoute
+  '/contacts': typeof ContactsRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/contacts': typeof ApiContactsRoute
   '/api/email-events': typeof ApiEmailEventsRoute
   '/api/email-status': typeof ApiEmailStatusRoute
+  '/api/session': typeof ApiSessionRoute
   '/api/public/resend-webhook': typeof ApiPublicResendWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$threadId': typeof ThreadIdRoute
+  '/contacts': typeof ContactsRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/contacts': typeof ApiContactsRoute
   '/api/email-events': typeof ApiEmailEventsRoute
   '/api/email-status': typeof ApiEmailStatusRoute
+  '/api/session': typeof ApiSessionRoute
   '/api/public/resend-webhook': typeof ApiPublicResendWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$threadId': typeof ThreadIdRoute
+  '/contacts': typeof ContactsRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/contacts': typeof ApiContactsRoute
   '/api/email-events': typeof ApiEmailEventsRoute
   '/api/email-status': typeof ApiEmailStatusRoute
+  '/api/session': typeof ApiSessionRoute
   '/api/public/resend-webhook': typeof ApiPublicResendWebhookRoute
 }
 export interface FileRouteTypes {
@@ -77,39 +104,58 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/$threadId'
+    | '/contacts'
     | '/api/chat'
+    | '/api/contacts'
     | '/api/email-events'
     | '/api/email-status'
+    | '/api/session'
     | '/api/public/resend-webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/$threadId'
+    | '/contacts'
     | '/api/chat'
+    | '/api/contacts'
     | '/api/email-events'
     | '/api/email-status'
+    | '/api/session'
     | '/api/public/resend-webhook'
   id:
     | '__root__'
     | '/'
     | '/$threadId'
+    | '/contacts'
     | '/api/chat'
+    | '/api/contacts'
     | '/api/email-events'
     | '/api/email-status'
+    | '/api/session'
     | '/api/public/resend-webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ThreadIdRoute: typeof ThreadIdRoute
+  ContactsRoute: typeof ContactsRoute
   ApiChatRoute: typeof ApiChatRoute
+  ApiContactsRoute: typeof ApiContactsRoute
   ApiEmailEventsRoute: typeof ApiEmailEventsRoute
   ApiEmailStatusRoute: typeof ApiEmailStatusRoute
+  ApiSessionRoute: typeof ApiSessionRoute
   ApiPublicResendWebhookRoute: typeof ApiPublicResendWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/contacts': {
+      id: '/contacts'
+      path: '/contacts'
+      fullPath: '/contacts'
+      preLoaderRoute: typeof ContactsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/$threadId': {
       id: '/$threadId'
       path: '/$threadId'
@@ -124,6 +170,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/session': {
+      id: '/api/session'
+      path: '/api/session'
+      fullPath: '/api/session'
+      preLoaderRoute: typeof ApiSessionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/email-status': {
       id: '/api/email-status'
       path: '/api/email-status'
@@ -136,6 +189,13 @@ declare module '@tanstack/react-router' {
       path: '/api/email-events'
       fullPath: '/api/email-events'
       preLoaderRoute: typeof ApiEmailEventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/contacts': {
+      id: '/api/contacts'
+      path: '/api/contacts'
+      fullPath: '/api/contacts'
+      preLoaderRoute: typeof ApiContactsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/chat': {
@@ -158,9 +218,12 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ThreadIdRoute: ThreadIdRoute,
+  ContactsRoute: ContactsRoute,
   ApiChatRoute: ApiChatRoute,
+  ApiContactsRoute: ApiContactsRoute,
   ApiEmailEventsRoute: ApiEmailEventsRoute,
   ApiEmailStatusRoute: ApiEmailStatusRoute,
+  ApiSessionRoute: ApiSessionRoute,
   ApiPublicResendWebhookRoute: ApiPublicResendWebhookRoute,
 }
 export const routeTree = rootRouteImport

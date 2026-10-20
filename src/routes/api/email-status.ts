@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { hasValidAccessSession } from "@/lib/access-session.server";
 
 /**
  * Poll Resend for the status of one or more email IDs.
@@ -12,6 +13,9 @@ export const Route = createFileRoute("/api/email-status")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        if (!hasValidAccessSession(request)) {
+          return new Response("Unauthorized", { status: 401 });
+        }
         const lovableKey = process.env.LOVABLE_API_KEY;
         const resendKey = process.env.RESEND_API_KEY;
         if (!lovableKey || !resendKey) {

@@ -32,19 +32,32 @@ const MAX_EVENTS = 500;
 const events: EmailEvent[] = [];
 
 export async function recordEvent(ev: EmailEvent) {
-  events.push(ev);
-  if (events.length > MAX_EVENTS) events.splice(0, events.length - MAX_EVENTS);
-  const db = supabaseAdmin as any;
-  const { error } = await db.from("email_delivery_events").insert({
+  const normalizedEmail = ev.email.trim().toLowerCase();
+  const { data: contact, error: contactError } = await supabaseAdmin
+    .from("sourced_contacts")
+    .select("id")
+    .eq("email", normalizedEmail)
+    .limit(1)
+    .maybeSingle();
+  if (contactError) {
+    throw new Error(`Could not link delivery event to contact: ${contactError.message}`);
+  }
+
+  const { error } = await supabaseAdmin.from("email_delivery_events").insert({
     type: ev.type,
-    email: ev.email,
+    email: normalizedEmail,
     subject: ev.subject,
     resend_id: ev.resendId,
     event_at: new Date(ev.at).toISOString(),
     bounce_reason: ev.bounceReason,
     raw: ev,
+    contact_id: contact?.id ?? null,
   });
-  if (error) console.warn("[email-events] failed to persist event", error.message);
+  if (error) {
+    throw new Error(`Could not persist delivery event: ${error.message}`);
+  }
+  events.push(ev);
+  if (events.length > MAX_EVENTS) events.splice(0, events.length - MAX_EVENTS);
 }
 
 export function listEvents(): EmailEvent[] {
@@ -76,23 +89,20 @@ export type EmailStatus = {
 };
 
 export async function summarize(): Promise<EmailStatus[]> {
-  const db = supabaseAdmin as any;
-  const { data, error } = await db
+  const { data, error } = await supabaseAdmin
     .from("email_delivery_events")
     .select("type,email,subject,resend_id,event_at,bounce_reason")
     .order("event_at", { ascending: false })
     .limit(500);
-
-  const source: EmailEvent[] = error
-    ? events
-    : (data ?? []).map((row: any) => ({
-        type: row.type,
-        email: row.email,
-        subject: row.subject,
-        resendId: row.resend_id,
-        at: row.event_at ? Date.parse(row.event_at) : Date.now(),
-        bounceReason: row.bounce_reason,
-      }));
+  if (error) throw new Error(`Could not read email delivery history: ${error.message}`);
+  const source: EmailEvent[] = (data ?? []).map((row) => ({
+    type: row.type,
+    email: row.email,
+    subject: row.subject ?? undefined,
+    resendId: row.resend_id ?? undefined,
+    at: Date.parse(row.event_at),
+    bounceReason: row.bounce_reason ?? undefined,
+  }));
 
   const groups = new Map<string, EmailEvent[]>();
   for (const e of source) {
