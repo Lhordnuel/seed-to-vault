@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           bounce_reason: string | null
           created_at: string
+          contact_id: string | null
           email: string
           event_at: string
           id: string
@@ -29,6 +30,7 @@ export type Database = {
         Insert: {
           bounce_reason?: string | null
           created_at?: string
+          contact_id?: string | null
           email: string
           event_at?: string
           id?: string
@@ -40,6 +42,7 @@ export type Database = {
         Update: {
           bounce_reason?: string | null
           created_at?: string
+          contact_id?: string | null
           email?: string
           event_at?: string
           id?: string
@@ -47,6 +50,135 @@ export type Database = {
           resend_id?: string | null
           subject?: string | null
           type?: string
+        }
+        Relationships: []
+      }
+      scouted_companies: {
+        Row: {
+          created_at: string
+          domain: string
+          employee_count: number | null
+          id: string
+          industry: string | null
+          linkedin_url: string | null
+          name: string
+          stage: string | null
+          updated_at: string
+          website_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          domain: string
+          employee_count?: number | null
+          id?: string
+          industry?: string | null
+          linkedin_url?: string | null
+          name: string
+          stage?: string | null
+          updated_at?: string
+          website_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          domain?: string
+          employee_count?: number | null
+          id?: string
+          industry?: string | null
+          linkedin_url?: string | null
+          name?: string
+          stage?: string | null
+          updated_at?: string
+          website_url?: string | null
+        }
+        Relationships: []
+      }
+      sourced_contacts: {
+        Row: {
+          company_id: string
+          commercialization_eligible: boolean
+          commercialization_reviewed_at: string | null
+          created_at: string
+          do_not_contact: boolean
+          email: string | null
+          email_status: string
+          first_sourced_at: string
+          full_name: string
+          id: string
+          last_sourced_at: string
+          linkedin_url: string | null
+          lawful_basis: string | null
+          opted_out_at: string | null
+          retention_review_at: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          commercialization_eligible?: boolean
+          commercialization_reviewed_at?: string | null
+          created_at?: string
+          do_not_contact?: boolean
+          email?: string | null
+          email_status?: string
+          first_sourced_at?: string
+          full_name: string
+          id?: string
+          last_sourced_at?: string
+          linkedin_url?: string | null
+          lawful_basis?: string | null
+          opted_out_at?: string | null
+          retention_review_at?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          commercialization_eligible?: boolean
+          commercialization_reviewed_at?: string | null
+          created_at?: string
+          do_not_contact?: boolean
+          email?: string | null
+          email_status?: string
+          first_sourced_at?: string
+          full_name?: string
+          id?: string
+          last_sourced_at?: string
+          linkedin_url?: string | null
+          lawful_basis?: string | null
+          opted_out_at?: string | null
+          retention_review_at?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      contact_sources: {
+        Row: {
+          contact_id: string
+          external_record_id: string | null
+          id: string
+          metadata: Json
+          observed_at: string
+          provider: string
+          source_url: string | null
+        }
+        Insert: {
+          contact_id: string
+          external_record_id?: string | null
+          id?: string
+          metadata?: Json
+          observed_at?: string
+          provider: string
+          source_url?: string | null
+        }
+        Update: {
+          contact_id?: string
+          external_record_id?: string | null
+          id?: string
+          metadata?: Json
+          observed_at?: string
+          provider?: string
+          source_url?: string | null
         }
         Relationships: []
       }

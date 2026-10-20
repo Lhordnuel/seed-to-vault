@@ -48,16 +48,17 @@ export const Route = createFileRoute("/api/public/resend-webhook")({
           const raw = await request.text();
           const secret = process.env.RESEND_WEBHOOK_SECRET;
 
-          if (secret) {
-            const id = request.headers.get("svix-id");
-            const timestamp = request.headers.get("svix-timestamp");
-            const signature = request.headers.get("svix-signature");
-            if (!id || !timestamp || !signature) {
-              return new Response("Missing svix headers", { status: 401 });
-            }
-            if (!verifySvix(secret, id, timestamp, raw, signature)) {
-              return new Response("Invalid signature", { status: 401 });
-            }
+          if (!secret) {
+            return new Response("Webhook verification is not configured", { status: 503 });
+          }
+          const id = request.headers.get("svix-id");
+          const timestamp = request.headers.get("svix-timestamp");
+          const signature = request.headers.get("svix-signature");
+          if (!id || !timestamp || !signature) {
+            return new Response("Missing svix headers", { status: 401 });
+          }
+          if (!verifySvix(secret, id, timestamp, raw, signature)) {
+            return new Response("Invalid signature", { status: 401 });
           }
 
           const body = JSON.parse(raw) as {

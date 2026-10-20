@@ -2,8 +2,6 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { verifyAccessPassword } from "@/lib/access.functions";
 
-const STORAGE_KEY = "app_access_unlocked_v1";
-
 export function AccessGate({ children }: { children: React.ReactNode }) {
   const [unlocked, setUnlocked] = useState<boolean | null>(null);
   const [password, setPassword] = useState("");
@@ -12,11 +10,18 @@ export function AccessGate({ children }: { children: React.ReactNode }) {
   const verify = useServerFn(verifyAccessPassword);
 
   useEffect(() => {
-    try {
-      setUnlocked(localStorage.getItem(STORAGE_KEY) === "1");
-    } catch {
-      setUnlocked(false);
-    }
+    fetch("/api/session", { credentials: "same-origin", cache: "no-store" })
+      .then((response) => {
+        if (response.ok) {
+          setUnlocked(true);
+          return;
+        }
+        setUnlocked(false);
+      })
+      .catch(() => {
+        setError("Could not verify your session. Check your connection and try again.");
+        setUnlocked(false);
+      });
   }, []);
 
   if (unlocked === null) return null;
@@ -29,9 +34,6 @@ export function AccessGate({ children }: { children: React.ReactNode }) {
     try {
       const res = await verify({ data: { password } });
       if (res.ok) {
-        try {
-          localStorage.setItem(STORAGE_KEY, "1");
-        } catch {}
         setUnlocked(true);
       } else {
         setError(res.error ?? "Incorrect password");

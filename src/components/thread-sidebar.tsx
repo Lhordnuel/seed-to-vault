@@ -1,6 +1,6 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Plus, Trash2, Search } from "lucide-react";
+import { Plus, Trash2, Search, UsersRound } from "lucide-react";
 import {
   deleteThread,
   loadThreads,
@@ -61,6 +61,19 @@ export function ThreadSidebar() {
           <Plus className="h-4 w-4" />
           New search
         </Button>
+      </div>
+      <div className="px-3 pb-2">
+        <Link
+          to="/contacts"
+          className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
+            location === "/contacts"
+              ? "bg-accent font-medium text-accent-foreground"
+              : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+          }`}
+        >
+          <UsersRound className="h-4 w-4" />
+          Contact database
+        </Link>
       </div>
       <div className="flex-1 overflow-y-auto px-2 pb-3">
         {threads.length === 0 ? (
