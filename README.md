@@ -1,8 +1,8 @@
 # Startup Scout
 
-Startup Scout is an AI-powered research and outreach workspace for Vaultio. It helps identify early-stage companies that are hiring, research relevant roles and decision-makers, qualify potential customers, and draft personalized outreach.
+Startup Scout is an AI-powered research and outreach workspace for Vaultio.tech. It helps identify early-stage companies that are hiring, research relevant roles and decision-makers, qualify potential customers, and draft personalized outreach.
 
-**Live app:** [seed-to-vault.lovable.app](https://seed-to-vault.lovable.app)
+**Live app:** [vaultio.site](https://vaultio.site)
 
 ## What it does
 
