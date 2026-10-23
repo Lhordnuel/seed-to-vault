@@ -17,15 +17,20 @@ const APOLLO_EXECUTIVE_TITLES = [
 ];
 
 const APOLLO_HIRING_TITLES = [
-  "head of people",
-  "head of talent",
-  "talent acquisition",
-  "talent acquisition manager",
-  "recruiter",
-  "technical recruiter",
-  "hr manager",
-  "people operations",
-  "chief people officer",
+  "head of engineering",
+  "vp engineering",
+  "engineering manager",
+  "cto",
+  "chief technology officer",
+  "head of product",
+  "vp product",
+  "chief product officer",
+  "product manager",
+  "product lead",
+  "head of marketing",
+  "vp marketing",
+  "chief marketing officer",
+  "marketing manager",
   ...APOLLO_EXECUTIVE_TITLES,
 ];
 
@@ -79,23 +84,29 @@ async function post(
   } catch {
     data = text;
   }
-  const summary =
-    data && typeof data === "object"
-      ? {
-          people: Array.isArray((data as any).people) ? (data as any).people.length : undefined,
-          contacts: Array.isArray((data as any).contacts) ? (data as any).contacts.length : undefined,
-          organizations: Array.isArray((data as any).organizations) ? (data as any).organizations.length : undefined,
-          pagination: (data as any).pagination,
-          error: (data as any).error ?? (data as any).message,
-        }
-      : { raw: String(text).slice(0, 200) };
+  const record =
+    data && typeof data === "object" && !Array.isArray(data)
+      ? (data as Record<string, unknown>)
+      : undefined;
+  const summary = record
+    ? {
+        people: Array.isArray(record.people) ? record.people.length : undefined,
+        contacts: Array.isArray(record.contacts) ? record.contacts.length : undefined,
+        organizations: Array.isArray(record.organizations)
+          ? record.organizations.length
+          : undefined,
+        pagination: record.pagination,
+        error: record.error ?? record.message,
+      }
+    : { raw: String(text).slice(0, 200) };
   console.log(`[apollo] ${path} ${res.status}`, JSON.stringify({ body, summary }));
   if (!res.ok) {
-    throw new Error(`Apollo ${path} ${res.status}: ${typeof data === "string" ? data : JSON.stringify(data)}`);
+    throw new Error(
+      `Apollo ${path} ${res.status}: ${typeof data === "string" ? data : JSON.stringify(data)}`,
+    );
   }
   return data as Record<string, unknown>;
 }
-
 
 export type ApolloOrg = {
   id?: string;
@@ -134,7 +145,7 @@ export function isUsableApolloEmail(email?: string | null): email is string {
 
 /**
  * Search startups using Apollo's organization mixed search.
- * Filters: company size 1-50, funding stage seed -> series a.
+ * Requests adjacent size bands and filters the results to the ICP's 15-80 range.
  */
 export async function apolloSearchOrganizations(opts: {
   keywords?: string;
@@ -146,13 +157,9 @@ export async function apolloSearchOrganizations(opts: {
   const body: Record<string, unknown> = {
     page: opts.page ?? 1,
     per_page: Math.min(opts.perPage ?? 25, 100),
-    organization_num_employees_ranges: ["1,10", "11,20", "21,50"],
+    organization_num_employees_ranges: ["11,20", "21,50", "51,100"],
     // Apollo funding stage tags
-    organization_latest_funding_stage_cd: [
-      "Seed",
-      "Series A",
-      "Pre-Seed",
-    ],
+    organization_latest_funding_stage_cd: ["Seed", "Series A", "Series B"],
   };
   if (opts.keywords) body.q_organization_keyword_tags = [opts.keywords];
   if (opts.locations?.length) body.organization_locations = opts.locations;
@@ -160,7 +167,12 @@ export async function apolloSearchOrganizations(opts: {
 
   const data = await post("/mixed_companies/search", body);
   const orgs = (data.organizations ?? data.accounts ?? []) as ApolloOrg[];
-  return orgs;
+  return orgs.filter(
+    (org) =>
+      org.estimated_num_employees !== undefined &&
+      org.estimated_num_employees >= 15 &&
+      org.estimated_num_employees <= 80,
+  );
 }
 
 /**
@@ -177,7 +189,10 @@ export async function apolloFindExecutives(opts: {
   const titles = contactTitles(opts.mode ?? "hiring", opts.titles);
   const perPage = Math.min(opts.perPage ?? 10, 25);
   const clean = opts.domain
-    ? opts.domain.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0]
+    ? opts.domain
+        .replace(/^https?:\/\//, "")
+        .replace(/^www\./, "")
+        .split("/")[0]
     : undefined;
 
   const baseBody = (): Record<string, unknown> => {
@@ -230,7 +245,11 @@ export async function apolloEnrichPerson(opts: {
   if (opts.id) body.id = opts.id;
   if (opts.firstName) body.first_name = opts.firstName;
   if (opts.lastName) body.last_name = opts.lastName;
-  if (opts.domain) body.domain = opts.domain.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
+  if (opts.domain)
+    body.domain = opts.domain
+      .replace(/^https?:\/\//, "")
+      .replace(/^www\./, "")
+      .split("/")[0];
   if (opts.organizationName) body.organization_name = opts.organizationName;
   if (opts.linkedinUrl) body.linkedin_url = opts.linkedinUrl;
   const data = await post("/people/match", body, {
@@ -253,7 +272,10 @@ export async function apolloBulkEnrichPeople(
     first_name: p.first_name,
     last_name: p.last_name,
     name: p.name,
-    domain: opts.domain?.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0],
+    domain: opts.domain
+      ?.replace(/^https?:\/\//, "")
+      .replace(/^www\./, "")
+      .split("/")[0],
     organization_name: opts.organizationName,
     linkedin_url: p.linkedin_url,
   }));
