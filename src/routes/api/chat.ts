@@ -25,7 +25,11 @@ import { hunterDomainSearch, hunterEmailFinder } from "@/lib/hunter.server";
 import { prospeoDomainSearch, prospeoEmailFinder } from "@/lib/prospeo.server";
 import { pdlPersonEnrich, pdlPersonSearch } from "@/lib/pdl.server";
 import { tombaDomainSearch, tombaEmailFinder } from "@/lib/tomba.server";
-import { isContactOptedOut, saveSourcedContacts } from "@/lib/sourced-records.server";
+import {
+  CONTACT_SOURCE_PROVIDERS,
+  isContactOptedOut,
+  saveSourcedContacts,
+} from "@/lib/sourced-records.server";
 import { hasValidAccessSession } from "@/lib/access-session.server";
 import { rankScoutingCompanies } from "@/lib/scouting-rank";
 
@@ -279,7 +283,7 @@ Examples: "[Name], saw your [specific thing]" · "[Company]'s [Role] hire — qu
 
 How to work — user-controlled stages:
 1. DISCOVER: search Apollo and public job sources, verify company stage, size, remote/distributed hiring, geography, and live eligible roles. Exclude poor fits. Call \`present_ranked_companies\` with verified evidence and stop. Do not search for contacts, enrich people, save contacts, or draft/send outreach in this stage. Ask Nuel to choose companies using the selection cards.
-2. CONTACTS: only after Nuel selects companies using the selection cards, find relevant named decision-makers at those selected companies. Prioritize the hiring manager for a selected opening (engineering leader for engineering roles, product leader for product roles, marketing leader for marketing roles), then CTO/technical co-founder or the relevant function's executive. Call \`present_contact_options\` with sourced options, then stop and wait for contact selection. Do not draft or send yet.
+2. CONTACTS: only after Nuel selects companies using the selection cards, find relevant named decision-makers at those selected companies. Prioritize the hiring manager for a selected opening (engineering leader for engineering roles, product leader for product roles, marketing leader for marketing roles), then CTO/technical co-founder or the relevant function's executive. Call \`present_contact_options\` with each contact's actual source provider and source URL when known. Do not present or save inferred email guesses. This automatically saves the presented sourced contacts to Supabase before showing them; report any save failures shown in the tool result, then stop and wait for contact selection. Do not draft or send yet.
 3. DRAFT: only after Nuel selects named contacts, research each selected person and company, then draft individualized messages. Show drafts for review. Never send during discovery, contact selection, or draft creation. Send only after a separate, explicit send instruction.
 4. During the CONTACTS stage, use this lookup order and stop once there are enough sourced options to show:
    a. \`fullenrich_enrich_person\` (or \`fullenrich_bulk_enrich\` for multiple) — PRIMARY enrichment when you have a name + (domain OR LinkedIn URL). Best email accuracy; returns VALID/CATCHALL qualification. Always try this FIRST once you have a name.
@@ -293,8 +297,7 @@ How to work — user-controlled stages:
    i. \`ai_source_emails\` (Claude Opus on AWS Bedrock) if every provider above failed — scrapes site + reasons about likely patterns.
    j. \`find_linkedin_profiles\` (Firecrawl LinkedIn search) ONLY as the final fallback when no email exists anywhere. Surface the LinkedIn URLs so Nuel can DM manually.
 5. RESEARCH PASS (MANDATORY before draft_pitch): after contact selection, for each recipient, run \`scrape_company\` on the company site AND on the recipient's LinkedIn/about page. Record 2–3 specific facts and the industry pain you'll lead with.
-6. Save sourced company/contact records with \`save_sourced_contacts\` only after Nuel has selected the company/contact and the record is backed by a provider or verified public source. Include the actual source provider and source URL when available. Do not save inferred email guesses as verified addresses.
-7. \`draft_pitch\` using the PITCH FRAMEWORK + the correct ROLE-FAMILY VARIANT. Draft only for contacts Nuel selected. Show drafts and wait for explicit approval before any send.
+6. \`draft_pitch\` using the PITCH FRAMEWORK + the correct ROLE-FAMILY VARIANT. Draft only for contacts Nuel selected. Show drafts and wait for explicit approval before any send.
 
 8. SINGLE → \`send_pitch\` (audience="hiring"). MULTIPLE → \`bulk_send_pitch\` ONCE (rate-limited, dedupes). Each body MUST be unique and personalized. These tools are available only after explicit approval in a separate message.
 
@@ -1151,7 +1154,7 @@ export const Route = createFileRoute("/api/chat")({
           }),
           present_contact_options: tool({
             description:
-              "Present sourced contacts at the user-selected companies as selectable contact cards. Call after contact research, then stop and wait for the user to select people. Do not draft or send outreach.",
+              "Save sourced contacts at the user-selected company to Supabase, then present them as selectable contact cards. Provide each contact's actual source provider and source URL when known. Never include inferred email guesses. Call after contact research, then stop and wait for the user to select people. Do not draft or send outreach.",
             inputSchema: z.object({
               companyName: z.string().min(1),
               domain: z.string().optional(),
@@ -1160,8 +1163,15 @@ export const Route = createFileRoute("/api/chat")({
                   z
                     .object({
                       name: z.string().min(1),
+                      provider: z
+                        .enum(CONTACT_SOURCE_PROVIDERS)
+                        .describe("The actual contact provider that returned this person"),
                       title: z.string().optional(),
-                      email: z.string().email().optional(),
+                      email: z
+                        .string()
+                        .email()
+                        .optional()
+                        .describe("Only a sourced email address; never an inferred guess"),
                       linkedin: z.string().url().optional(),
                       source: z.string().url().optional(),
                     })
@@ -1172,79 +1182,44 @@ export const Route = createFileRoute("/api/chat")({
                 .min(1)
                 .max(30),
             }),
-            execute: async ({ companyName, domain, contacts }) => ({
-              companyName,
-              domain,
-              contacts,
-            }),
-          }),
-          save_sourced_contacts: tool({
-            description:
-              "Persist discovered company and contact records in the configured Supabase database, including their source provider and source URL. Only save records returned by a provider or verified public source; do not mark inferred email guesses as verified.",
-            inputSchema: z.object({
-              company: z.object({
-                name: z.string().min(1),
-                domain: z.string().min(1),
-                websiteUrl: z
-                  .string()
-                  .url()
-                  .refine((url) => /^https?:\/\//i.test(url))
-                  .optional(),
-                linkedinUrl: z
-                  .string()
-                  .url()
-                  .refine((url) => /^https?:\/\//i.test(url))
-                  .optional(),
-                stage: z.string().optional(),
-                employeeCount: z.number().int().nonnegative().optional(),
-                industry: z.string().optional(),
-              }),
-              provider: z.enum([
-                "apollo",
-                "firecrawl",
-                "fullenrich",
-                "hunter",
-                "linkedin",
-                "lusha",
-                "pdl",
-                "prospeo",
-                "tomba",
-                "wellfound",
-                "f6s",
-                "yc",
-              ]),
-              contacts: z
-                .array(
-                  z
-                    .object({
-                      fullName: z.string().min(1),
-                      title: z.string().optional(),
-                      email: z.string().email().optional(),
-                      emailStatus: z.enum(["unknown", "valid", "catchall", "invalid"]).optional(),
-                      linkedinUrl: z
-                        .string()
-                        .url()
-                        .refine((url) => /^https?:\/\//i.test(url))
-                        .optional(),
-                      sourceUrl: z
-                        .string()
-                        .url()
-                        .refine((url) => /^https?:\/\//i.test(url))
-                        .optional(),
-                      externalRecordId: z.string().optional(),
-                    })
-                    .refine((contact) => contact.email || contact.linkedinUrl, {
-                      message: "A contact must include an email address or LinkedIn URL.",
-                    }),
-                )
-                .min(1)
-                .max(100),
-            }),
-            execute: async (input) => {
+            execute: async ({ companyName, domain, contacts }) => {
+              if (!domain) {
+                return {
+                  companyName,
+                  domain,
+                  contacts,
+                  saved: 0,
+                  saveError: "Company domain is missing; these contacts could not be saved.",
+                };
+              }
               try {
-                return await saveSourcedContacts(input);
+                const result = await saveSourcedContacts({
+                  company: { name: companyName, domain },
+                  contacts: contacts.map((contact) => ({
+                    fullName: contact.name,
+                    provider: contact.provider,
+                    title: contact.title,
+                    email: contact.email,
+                    linkedinUrl: contact.linkedin,
+                    sourceUrl: contact.source,
+                  })),
+                });
+                return {
+                  companyName,
+                  domain,
+                  contacts,
+                  saved: result.saved,
+                  saveFailures: result.failures,
+                  sourceFailures: result.sourceFailures,
+                };
               } catch (e) {
-                return { error: (e as Error).message, saved: 0 };
+                return {
+                  companyName,
+                  domain,
+                  contacts,
+                  saved: 0,
+                  saveError: (e as Error).message,
+                };
               }
             },
           }),
@@ -1832,7 +1807,6 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
             "pdl_person_search",
             "tomba_email_finder",
             "ai_source_emails",
-            "save_sourced_contacts",
             "draft_pitch",
             "draft_generic_email",
           ]),

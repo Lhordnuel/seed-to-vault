@@ -665,6 +665,7 @@ type ContactCardRecord = {
   linkedin_url?: string;
   url?: string;
   source?: string;
+  provider?: string;
 };
 
 function ContactSelectionCards({
@@ -721,6 +722,14 @@ function ContactSelectionCards({
   const selectedContacts = available.filter((contact, index) =>
     selected.includes(contact.email ?? contact.profile ?? `${contact.displayName}-${index}`),
   );
+  const savedCount = typeof output.saved === "number" ? output.saved : null;
+  const saveError = typeof output.saveError === "string" ? output.saveError : undefined;
+  const saveFailures = Array.isArray(output.saveFailures)
+    ? output.saveFailures.filter((failure): failure is string => typeof failure === "string")
+    : [];
+  const sourceFailures = Array.isArray(output.sourceFailures)
+    ? output.sourceFailures.filter((failure): failure is string => typeof failure === "string")
+    : [];
 
   return (
     <section className="rounded-lg border bg-card p-4">
@@ -730,6 +739,30 @@ function ContactSelectionCards({
           Select the people you want to research and draft for. Nothing will be sent.
         </p>
       </div>
+      {savedCount !== null ? (
+        <div
+          role={saveError || saveFailures.length || sourceFailures.length ? "alert" : "status"}
+          className={`mb-3 rounded-md border px-3 py-2 text-sm ${
+            saveError || saveFailures.length || sourceFailures.length
+              ? "border-destructive/30 bg-destructive/5 text-destructive"
+              : "border-emerald-600/30 bg-emerald-600/5 text-foreground"
+          }`}
+        >
+          {saveError ? (
+            <p>Supabase save failed: {saveError}</p>
+          ) : (
+            <p>
+              Saved {savedCount} sourced contact{savedCount === 1 ? "" : "s"} to Supabase.
+            </p>
+          )}
+          {saveFailures.map((failure) => (
+            <p key={failure}>{failure}</p>
+          ))}
+          {sourceFailures.map((failure) => (
+            <p key={failure}>Contact saved, but source history could not be saved: {failure}</p>
+          ))}
+        </div>
+      ) : null}
       <div className="space-y-2">
         {available.map((contact, index) => {
           const key = contact.email ?? contact.profile ?? `${contact.displayName}-${index}`;
@@ -748,6 +781,11 @@ function ContactSelectionCards({
                 <div className="font-medium">{contact.displayName}</div>
                 {contact.displayTitle ? (
                   <div className="text-sm text-muted-foreground">{contact.displayTitle}</div>
+                ) : null}
+                {contact.provider ? (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    Source provider: {contact.provider}
+                  </div>
                 ) : null}
                 <div className="mt-1 flex flex-wrap gap-x-3 text-xs">
                   {contact.email ? (
