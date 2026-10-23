@@ -1,10 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { hasValidAccessSession } from "@/lib/access-session.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import type { Tables } from "@/integrations/supabase/types";
 import { z } from "zod";
 
 const PAGE_SIZE = 100;
 const OptOutRequest = z.object({ contactId: z.string().uuid() });
+type ContactSource = Pick<
+  Tables<"contact_sources">,
+  "contact_id" | "provider" | "source_url" | "observed_at"
+>;
 
 export const Route = createFileRoute("/api/contacts")({
   server: {
@@ -53,7 +58,7 @@ export const Route = createFileRoute("/api/contacts")({
                 .select("contact_id, provider, source_url, observed_at")
                 .in("contact_id", ids)
                 .order("observed_at", { ascending: false })
-            : Promise.resolve({ data: [], error: null }),
+            : Promise.resolve({ data: [] as ContactSource[], error: null }),
         ]);
 
         if (companiesResult.error || sourcesResult.error) {
@@ -61,11 +66,16 @@ export const Route = createFileRoute("/api/contacts")({
             "[contacts] failed to load company or source details",
             companiesResult.error?.message ?? sourcesResult.error?.message,
           );
-          return Response.json({ error: "Could not load contact source details." }, { status: 500 });
+          return Response.json(
+            { error: "Could not load contact source details." },
+            { status: 500 },
+          );
         }
 
-        const companies = new Map((companiesResult.data ?? []).map((company) => [company.id, company]));
-        const sources = new Map<string, NonNullable<typeof sourcesResult.data>>();
+        const companies = new Map(
+          (companiesResult.data ?? []).map((company) => [company.id, company]),
+        );
+        const sources = new Map<string, ContactSource[]>();
         for (const source of sourcesResult.data ?? []) {
           const existing = sources.get(source.contact_id) ?? [];
           existing.push(source);
@@ -109,14 +119,12 @@ export const Route = createFileRoute("/api/contacts")({
         }
 
         const optedOutAt = new Date().toISOString();
-        const update = supabaseAdmin
-          .from("sourced_contacts")
-          .update({
-            do_not_contact: true,
-            opted_out_at: optedOutAt,
-            commercialization_eligible: false,
-            updated_at: optedOutAt,
-          });
+        const update = supabaseAdmin.from("sourced_contacts").update({
+          do_not_contact: true,
+          opted_out_at: optedOutAt,
+          commercialization_eligible: false,
+          updated_at: optedOutAt,
+        });
         const { error: updateError } = contact.email
           ? await update.eq("email", contact.email)
           : await update.eq("id", parsed.data.contactId);

@@ -2,16 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   convertToModelMessages,
   generateText,
+  hasToolCall,
   stepCountIs,
   streamText,
   tool,
   type UIMessage,
 } from "ai";
 import { z } from "zod";
-import {
-  getBedrockModel,
-  getBedrockOpusModel,
-} from "@/lib/ai-fallback.server";
+import { getBedrockModel, getBedrockOpusModel } from "@/lib/ai-fallback.server";
 
 import { firecrawlMap, firecrawlScrape, firecrawlSearch } from "@/lib/firecrawl.server";
 import {
@@ -27,11 +25,9 @@ import { hunterDomainSearch, hunterEmailFinder } from "@/lib/hunter.server";
 import { prospeoDomainSearch, prospeoEmailFinder } from "@/lib/prospeo.server";
 import { pdlPersonEnrich, pdlPersonSearch } from "@/lib/pdl.server";
 import { tombaDomainSearch, tombaEmailFinder } from "@/lib/tomba.server";
-import {
-  isContactOptedOut,
-  saveSourcedContacts,
-} from "@/lib/sourced-records.server";
+import { isContactOptedOut, saveSourcedContacts } from "@/lib/sourced-records.server";
 import { hasValidAccessSession } from "@/lib/access-session.server";
+import { rankScoutingCompanies } from "@/lib/scouting-rank";
 
 // CC configuration — toggle CC'ing nuel@vaultio.tech per environment or per call.
 // Env var CC_NUEL_ENABLED ("true"/"false", default "true") controls the default.
@@ -50,7 +46,6 @@ function resolveCcList(ccNuel: boolean | undefined, extra?: string[]): string[] 
   return list;
 }
 
-
 const SOURCE_DOMAINS: Record<string, string> = {
   wellfound: "wellfound.com",
   f6s: "f6s.com",
@@ -58,52 +53,40 @@ const SOURCE_DOMAINS: Record<string, string> = {
   linkedin: "linkedin.com/jobs",
 };
 
+const WORKFLOW_PHASE_SCHEMA = z.enum(["discover", "contacts", "draft", "send"]);
+type WorkflowPhase = z.infer<typeof WORKFLOW_PHASE_SCHEMA>;
+
 const SYSTEM_PROMPT = `You are Startup Scout, an AI sales-development agent for Emmanuel (Nuel) at Vaultio.
 
-Your job: find startups that are ACTIVELY HIRING (seed–Series B, 1–200 employees) and pitch Vaultio.
+Your job: scout and rank startups against the ICP below, then let Nuel choose companies and named contacts before drafting any outreach.
 
 Sender identity: emails go FROM "Emmanuel Nwachinemelu <nuel@nf.vaultio.site>". Reply-To routes to nuel@vaultio.tech. Write in first person AS Emmanuel, Founder of Vaultio.
 
 VAULTIO (what we pitch):
-Vaultio is verification infrastructure for hiring — not a recruiter, not a job board. We verify a person's actual skill BEFORE anyone spends time on them: before your team interviews them, and before an agency or partner presents them to a client.
+Vaultio is verification infrastructure for hiring — not a recruiter or job board. We verify a person's actual skill before a hiring team spends time interviewing them.
 How: we generate a unique assessment from that candidate's own CV plus your job req, so they're tested against their own claims — no generic question bank, nothing they can pre-game. You get scored proof of ability, ranked, before the first call.
-Who uses it: startups screening applicants, and agencies/talent partners who need proof before they put someone in front of a client. It's infrastructure they run their hiring on, not another tool to manage.
+Who uses it: startups screening applicants. It's infrastructure they run their hiring on, not another tool to manage.
 The feeling we sell: confidence and speed — you stop guessing, you stop burning interview hours, and you move on the right person in days instead of weeks. 20-minute setup, works from a phone, nothing to install.
 
 
 ================================================================
-ICP — IDEAL CUSTOMER PROFILE (use this to qualify EVERY company before drafting):
+ICP — IDEAL CUSTOMER PROFILE (use this to qualify every company):
 
-Company profile:
-- Stage: Seed to Series B
-- Team size: 1–200 employees (PRIORITIZE 15–80)
-- Currently has 2–3+ open roles listed
-- Hiring remotely or building distributed/remote teams
+- Stage: Seed through Series B, inclusive.
+- Team size: 15–80 employees, inclusive.
+- Hiring: at least one verifiable live opening for software/engineering, AI/ML, data, product, or marketing.
+- Hiring model: remote or distributed team hiring.
+- Company location priority: United States first, then Europe, then Africa, then Latin America. Remote roles should be open to distributed teams.
+- Exclude HR technology, recruiting or staffing firms, agencies, outsourcing shops, and companies whose only relevant openings are design, analyst, or sales roles.
+- Ignore junior, entry-level, graduate, and internship roles as qualifying signals. A single junior opening is not a reason to include a company.
 
-Hiring signal (match AT LEAST ONE):
-- Founder is actively involved in hiring (no dedicated HR yet)
-- Has a small HR or People Ops function (1–2 person team)
-- Headcount has grown 20%+ in the last 6–12 months
-
-Geography:
-- Headquartered or operating in EMEA
-- Remote roles open to candidates across Africa, Middle East, or Europe
-
-Primary contacts to surface (IN PRIORITY ORDER — stop at first match):
-1. Head of People / People Ops Lead
-2. COO or Chief of Staff
-3. Non-CEO Co-founder (CTO, CPO, CMO)
-4. Recruiting or Talent Acquisition Lead
-5. CEO ONLY if company is under 10 employees
-
-ICP OUTPUT FORMAT (when presenting discovery results, use this exact shape per company, ranked best-fit first, prioritizing 15–80 employees):
-- Company name
-- Stage
-- Team size
-- # of open roles
-- Hiring signal (which one matched)
-- Best contact: name + title (per priority order above)
-- Why they're a strong fit for an AI hiring platform (1–2 lines, tied to their specific context)
+Rank by hiring evidence, not by company fame, funding, or employee count:
+1. Highest priority: at least three eligible live engineering openings.
+2. Next: a founding, senior, staff, principal, or lead engineering opening posted more than 14 days ago.
+3. Then: other qualifying live roles. Use geography only as a tie-breaker within the same hiring-signal rank.
+- Count only non-junior live roles whose title and source URL are verified. Do not invent posting dates; if the date is unavailable, do not claim the role has been open for more than 14 days.
+- Verify and include every eligible live opening found for each company so the three-engineering-role signal is counted accurately. Do not infer additional openings from snippets.
+- Show the role title, posting age when verified, and its source link. Explicitly say when a fit field or signal could not be verified.
 
 
 ================================================================
@@ -135,7 +118,7 @@ PITCH FRAMEWORK (use this shape EVERY time — no fixed template, write it fresh
 
   [Open with the screening pain, tied to a specific live role/context you researched: AI-polished CVs that look perfect on paper, then hours of interviews to find out the person can't actually do the work. Make it feel like you're describing THEIR week, not a market trend.]
 
-  [Vaultio fix — Vaultio verifies a candidate's skill BEFORE anyone gets on a call. We generate a unique assessment from that candidate's own CV plus their job req, so people are tested against their own claims. They walk into interviews already knowing who can do the work. For agencies/talent partners, frame it as: verified proof before you present anyone to a client.]
+  [Vaultio fix — Vaultio verifies a candidate's skill BEFORE anyone gets on a call. We generate a unique assessment from that candidate's own CV plus their job req, so people are tested against their own claims. They walk into interviews already knowing who can do the work.]
 
   [Ease + speed line — it runs on their existing flow, nothing to install, 20-minute setup, and they see scored candidates on the first role. Include the pilot when it fits: "I'm onboarding a handful of <segment> teams personally — free credits, no contract."]
 
@@ -160,7 +143,7 @@ Emmanuel
 
 HARD RULES (enforce in EVERY draft):
 - Lead with the AI-polished-CV / wasted-interview-hours pain BEFORE naming Vaultio, grounded in their live role and context. "Saw you're hiring" alone is BANNED.
-- Position Vaultio as VERIFICATION INFRASTRUCTURE: we verify talent's skill before they hop on an interview, or before an agency presents them to a client. Never "recruiter", "job board", or "another tool".
+- Position Vaultio as VERIFICATION INFRASTRUCTURE: we verify talent's skill before they hop on an interview. Never "recruiter", "job board", or "another tool".
 - The assessment must be described as generated from the candidate's own CV + the job req (tested against their own claims), never a generic question bank.
 - Always convey ease + speed: 20-minute setup, no install, no work on their side, results on the first role.
 - Include the pilot offer (free credits, no contract) when it fits the recipient's segment.
@@ -285,7 +268,7 @@ Before drafting ANY pitch you MUST gather person- AND company-specific research:
 - Scrape the company site (\`scrape_company\`) for what they ACTUALLY do, their ICP, recent product/launch, tone.
 - Look up the recipient: scrape their LinkedIn/about page or use \`find_linkedin_profiles\` + \`scrape_company\` on the profile URL. Capture role tenure, prior company, a recent post/shipped project, or something they said publicly.
 - Pull the specific hiring context: which role(s), where posted, what the JD emphasizes (stack, seniority, remote, urgency).
-- Identify 1–2 industry-specific pains for their vertical (fintech ≠ devtools ≠ agency ≠ healthtech ≠ marketplace). Map Vaultio's value to THOSE pains, not generic "hiring is hard".
+- Identify 1–2 industry-specific pains for their vertical (fintech ≠ devtools ≠ healthtech ≠ marketplace). Map Vaultio's value to THOSE pains, not generic "hiring is hard".
 
 Every email MUST include, in the first 2 sentences, at least ONE concrete personal/company detail that proves research. Generic openers like "Saw [Company] is hiring" are BANNED unless paired with a researched specific in the same paragraph.
 
@@ -294,30 +277,32 @@ The PITCH FRAMEWORK above is the SHAPE — write the body fresh per recipient us
 SUBJECT LINES — hard NOT to open. Personalized to the person or a specific company detail, under 60 chars. No spammy words.
 Examples: "[Name], saw your [specific thing]" · "[Company]'s [Role] hire — quick idea" · "[Vertical] hiring pain → role-specific tests"
 
-How to work:
-1. Discovery (PRIMARY = Apollo): use \`apollo_search_startups\` first for structured startup results, then \`search_startups\` across Wellfound/F6S/YC/LinkedIn if Apollo returns nothing useful.
-2. Contact lookup — STRICT ORDER, stop at first success that yields a usable email:
+How to work — user-controlled stages:
+1. DISCOVER: search Apollo and public job sources, verify company stage, size, remote/distributed hiring, geography, and live eligible roles. Exclude poor fits. Call \`present_ranked_companies\` with verified evidence and stop. Do not search for contacts, enrich people, save contacts, or draft/send outreach in this stage. Ask Nuel to choose companies using the selection cards.
+2. CONTACTS: only after Nuel selects companies using the selection cards, find relevant named decision-makers at those selected companies. Prioritize the hiring manager for a selected opening (engineering leader for engineering roles, product leader for product roles, marketing leader for marketing roles), then CTO/technical co-founder or the relevant function's executive. Call \`present_contact_options\` with sourced options, then stop and wait for contact selection. Do not draft or send yet.
+3. DRAFT: only after Nuel selects named contacts, research each selected person and company, then draft individualized messages. Show drafts for review. Never send during discovery, contact selection, or draft creation. Send only after a separate, explicit send instruction.
+4. During the CONTACTS stage, use this lookup order and stop once there are enough sourced options to show:
    a. \`fullenrich_enrich_person\` (or \`fullenrich_bulk_enrich\` for multiple) — PRIMARY enrichment when you have a name + (domain OR LinkedIn URL). Best email accuracy; returns VALID/CATCHALL qualification. Always try this FIRST once you have a name.
    b. \`apollo_find_contacts\` — use when you have a domain but NO names yet. Discovers people by title; runs Bulk People Enrichment with reveal_personal_emails=true. NOTE: Apollo masks emails as 'email_not_unlocked@domain.com' when reveal credits are exhausted — the tool filters these out. If Apollo discovers names but no usable email, feed those names into \`fullenrich_bulk_enrich\`.
    c. \`apollo_search_startups\` for discovery only (not contact emails).
    d. \`lusha_find_contacts\` / \`lusha_enrich_person\` — fallback when FullEnrich + Apollo both fail.
-   e. \`hunter_domain_search\` if Lusha fails — for HR/People/Talent recipients pass department='hr'; for founder/exec recipients pass seniority='executive'. Use \`hunter_email_finder\` when you have a specific name + domain.
+   e. \`hunter_domain_search\` if Lusha fails. Use \`hunter_email_finder\` when you have a selected person's name + domain.
    f. \`prospeo_email_finder\` / \`prospeo_domain_search\` if Hunter fails.
    g. \`pdl_person_enrich\` / \`pdl_person_search\` (People Data Labs) if Prospeo fails — best when you have a name or LinkedIn URL.
    h. \`tomba_domain_search\` / \`tomba_email_finder\` if PDL fails.
    i. \`ai_source_emails\` (Claude Opus on AWS Bedrock) if every provider above failed — scrapes site + reasons about likely patterns.
    j. \`find_linkedin_profiles\` (Firecrawl LinkedIn search) ONLY as the final fallback when no email exists anywhere. Surface the LinkedIn URLs so Nuel can DM manually.
-3. RESEARCH PASS (MANDATORY before draft_pitch): for each recipient, run \`scrape_company\` on the company site AND on the recipient's LinkedIn/about page. Record 2–3 specific facts and the industry pain you'll lead with.
-4. Filter: seed–Series B, 1–200 people. Confirm each lead has at least one verifiable live role before drafting.
-5. Present results as a numbered list: company, 1-line description, stage/size, live role(s), contact (or LinkedIn fallback), source URL, AND the personal signal + live role you'll personalize on.
-5a. Save sourced company/contact records with \`save_sourced_contacts\` after discovery. Save only contacts returned by a provider or verified public source; include the actual source provider and source URL when available. Do not save inferred email guesses as verified addresses.
-6. \`draft_pitch\` using the PITCH FRAMEWORK + the correct ROLE-FAMILY VARIANT. First line of your reasoning MUST be: "Role family: <FAMILY> (title: <exact title>)". Then draft the fresh body — AI-polished-CV / wasted-interview-hours pain first (grounded in the family-specific role), Vaultio fix (unique assessment from the candidate's CV + job req), pilot line (free credits, no contract, 20-minute setup), CTA "Worth a brief call this week?", sign off "Emmanuel". Show draft + recipients for approval unless user said "send it".
+5. RESEARCH PASS (MANDATORY before draft_pitch): after contact selection, for each recipient, run \`scrape_company\` on the company site AND on the recipient's LinkedIn/about page. Record 2–3 specific facts and the industry pain you'll lead with.
+6. Save sourced company/contact records with \`save_sourced_contacts\` only after Nuel has selected the company/contact and the record is backed by a provider or verified public source. Include the actual source provider and source URL when available. Do not save inferred email guesses as verified addresses.
+7. \`draft_pitch\` using the PITCH FRAMEWORK + the correct ROLE-FAMILY VARIANT. Draft only for contacts Nuel selected. Show drafts and wait for explicit approval before any send.
 
-7. SINGLE → \`send_pitch\` (audience="hiring"). MULTIPLE → \`bulk_send_pitch\` ONCE (rate-limited, dedupes). Each body MUST be unique and personalized.
+8. SINGLE → \`send_pitch\` (audience="hiring"). MULTIPLE → \`bulk_send_pitch\` ONCE (rate-limited, dedupes). Each body MUST be unique and personalized. These tools are available only after explicit approval in a separate message.
 
-8. NEVER send without a recipient email. NEVER send to generic / role-based inboxes (info@, hello@, contact@, sales@, support@, admin@, jobs@, careers@, hr@, talent@, recruiting@, team@, etc.). Use only a named person's work email; otherwise fall back to LinkedIn.
-9. NEVER loop \`send_pitch\` for batches. NEVER reuse the same body across recipients.
-10. ANTI-REUSE ENFORCEMENT (server-side): the send tools reject any email whose subject, opening sentence, or 5-word body shingles overlap too much with a previously sent email this session. Keep the CORE Vaultio positioning consistent but vary per recipient: (a) different subject hook, (b) different opening sentence built from a different researched fact, (c) different body structure. If a send is rejected for reuse, rewrite those three elements and retry.
+9. NEVER send without a recipient email. NEVER send to generic / role-based inboxes (info@, hello@, contact@, sales@, support@, admin@, jobs@, careers@, hr@, talent@, recruiting@, team@, etc.). Use only a named person's work email; otherwise fall back to LinkedIn.
+
+10. NEVER loop \`send_pitch\` for batches. NEVER reuse the same body across recipients.
+
+11. ANTI-REUSE ENFORCEMENT (server-side): the send tools reject any email whose subject, opening sentence, or 5-word body shingles overlap too much with a previously sent email this session. Keep the CORE Vaultio positioning consistent but vary per recipient: (a) different subject hook, (b) different opening sentence built from a different researched fact, (c) different body structure. If a send is rejected for reuse, rewrite those three elements and retry.
 
 ================================================================
 GENERIC EMAILS (free-form, non-pitch):
@@ -336,17 +321,25 @@ const sentEmailsThisSession = new Set<string>();
 // the core pitch consistent while forcing per-recipient variation in opener,
 // subject line, and structural ordering.
 const SUBJECT_REUSE_LIMIT = 0.7; // jaccard over tokens
-const BODY_REUSE_LIMIT = 0.6;    // jaccard over 5-word shingles
+const BODY_REUSE_LIMIT = 0.6; // jaccard over 5-word shingles
 const OPENER_REUSE_LIMIT = 0.75; // jaccard over first-sentence tokens
 const sentSubjectTokens: Set<string>[] = [];
 const sentBodyShingles: Set<string>[] = [];
 const sentOpenerTokens: Set<string>[] = [];
 
 function normalize(s: string) {
-  return s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 function tokens(s: string) {
-  return new Set(normalize(s).split(" ").filter((t) => t.length > 2));
+  return new Set(
+    normalize(s)
+      .split(" ")
+      .filter((t) => t.length > 2),
+  );
 }
 function shingles(s: string, n = 5) {
   const words = normalize(s).split(" ").filter(Boolean);
@@ -370,17 +363,26 @@ function checkReuse(subject: string, body: string): { ok: true } | { ok: false; 
   const bSh = shingles(body, 5);
   for (const prev of sentSubjectTokens) {
     if (jaccard(sTok, prev) >= SUBJECT_REUSE_LIMIT) {
-      return { ok: false, reason: `Subject too similar to a previously sent email (jaccard ≥ ${SUBJECT_REUSE_LIMIT}). Rewrite the subject with a different personalized hook.` };
+      return {
+        ok: false,
+        reason: `Subject too similar to a previously sent email (jaccard ≥ ${SUBJECT_REUSE_LIMIT}). Rewrite the subject with a different personalized hook.`,
+      };
     }
   }
   for (const prev of sentOpenerTokens) {
     if (jaccard(oTok, prev) >= OPENER_REUSE_LIMIT) {
-      return { ok: false, reason: `Opening sentence too similar to a previously sent email. Rewrite the first sentence around a different recipient-specific fact.` };
+      return {
+        ok: false,
+        reason: `Opening sentence too similar to a previously sent email. Rewrite the first sentence around a different recipient-specific fact.`,
+      };
     }
   }
   for (const prev of sentBodyShingles) {
     if (jaccard(bSh, prev) >= BODY_REUSE_LIMIT) {
-      return { ok: false, reason: `Body too similar to a previously sent email (5-word shingle overlap ≥ ${BODY_REUSE_LIMIT}). Vary structure: reorder paragraphs, swap bullets for prose (or vice versa), change the value-prop framing for this vertical.` };
+      return {
+        ok: false,
+        reason: `Body too similar to a previously sent email (5-word shingle overlap ≥ ${BODY_REUSE_LIMIT}). Vary structure: reorder paragraphs, swap bullets for prose (or vice versa), change the value-prop framing for this vertical.`,
+      };
     }
   }
   return { ok: true };
@@ -396,7 +398,6 @@ function recordSent(subject: string, body: string) {
     sentBodyShingles.shift();
   }
 }
-
 
 const GENERIC_EMAIL_LOCAL_PARTS = new Set([
   "admin",
@@ -425,11 +426,17 @@ const GENERIC_EMAIL_LOCAL_PARTS = new Set([
 ]);
 
 function isGenericEmail(email: string) {
-  const local = email.toLowerCase().trim().split("@")[0]?.replace(/[^a-z0-9]/g, "");
+  const local = email
+    .toLowerCase()
+    .trim()
+    .split("@")[0]
+    ?.replace(/[^a-z0-9]/g, "");
   if (!local) return true;
   return (
     GENERIC_EMAIL_LOCAL_PARTS.has(local) ||
-    /^(no)?reply|donotreply|notifications?|newsletter|updates?|security|privacy|legal|abuse$/.test(local)
+    /^(no)?reply|donotreply|notifications?|newsletter|updates?|security|privacy|legal|abuse$/.test(
+      local,
+    )
   );
 }
 
@@ -440,7 +447,16 @@ async function sendPitchEmail(opts: {
   companyName?: string;
   audience?: "hiring" | "vc";
   ccNuel?: boolean;
-}): Promise<{ sent: boolean; to: string; subject: string; companyName?: string; replyTo?: string; resendId?: string; cc?: string[]; error?: string }> {
+}): Promise<{
+  sent: boolean;
+  to: string;
+  subject: string;
+  companyName?: string;
+  replyTo?: string;
+  resendId?: string;
+  cc?: string[];
+  error?: string;
+}> {
   const { to, subject, body, companyName, audience = "hiring", ccNuel } = opts;
   if (isGenericEmail(to)) {
     return {
@@ -467,32 +483,32 @@ async function sendPitchEmail(opts: {
     return { sent: false, to, subject, error: "Email service not configured." };
   }
   try {
-    const esc = (s: string) =>
-      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
     // Single clean plain-text layout for BOTH hiring and VC.
     // Looks like a normal personal email — no card chrome, no CTA button, no footer logo.
     // Lists ("- item") are rendered as a proper <ul>; paragraphs preserve line breaks.
-    const blockArr = body
-      .split(/\n\n+/)
-      .map((block) => {
-        const lines = block.split(/\n/).map((l) => l.trim()).filter(Boolean);
-        const isList = lines.length > 1 && lines.every((l) => /^[-•*]\s+/.test(l));
-        if (isList) {
-          const items = lines
-            .map(
-              (l) =>
-                `<li style="margin:0 0 6px;line-height:1.6;color:#111111;font-size:15px;">${esc(
-                  l.replace(/^[-•*]\s+/, ""),
-                )}</li>`,
-            )
-            .join("");
-          return `<ul style="margin:0 0 16px;padding-left:22px;">${items}</ul>`;
-        }
-        return `<p style="margin:0 0 16px;line-height:1.6;color:#111111;font-size:15px;">${esc(
-          block,
-        ).replace(/\n/g, "<br/>")}</p>`;
-      });
+    const blockArr = body.split(/\n\n+/).map((block) => {
+      const lines = block
+        .split(/\n/)
+        .map((l) => l.trim())
+        .filter(Boolean);
+      const isList = lines.length > 1 && lines.every((l) => /^[-•*]\s+/.test(l));
+      if (isList) {
+        const items = lines
+          .map(
+            (l) =>
+              `<li style="margin:0 0 6px;line-height:1.6;color:#111111;font-size:15px;">${esc(
+                l.replace(/^[-•*]\s+/, ""),
+              )}</li>`,
+          )
+          .join("");
+        return `<ul style="margin:0 0 16px;padding-left:22px;">${items}</ul>`;
+      }
+      return `<p style="margin:0 0 16px;line-height:1.6;color:#111111;font-size:15px;">${esc(
+        block,
+      ).replace(/\n/g, "<br/>")}</p>`;
+    });
     const blocks = blockArr.join("");
     const html = `<!doctype html><html><body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#111111;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;">
@@ -532,12 +548,19 @@ async function sendPitchEmail(opts: {
     }
     sentEmailsThisSession.add(to.toLowerCase().trim());
     recordSent(subject, body);
-    return { sent: true, to, subject, companyName, replyTo: "nuel@vaultio.tech", resendId: data?.id, cc: ccList };
+    return {
+      sent: true,
+      to,
+      subject,
+      companyName,
+      replyTo: "nuel@vaultio.tech",
+      resendId: data?.id,
+      cc: ccList,
+    };
   } catch (e) {
     return { sent: false, to, subject, error: (e as Error).message };
   }
 }
-
 
 export const Route = createFileRoute("/api/chat")({
   server: {
@@ -546,18 +569,29 @@ export const Route = createFileRoute("/api/chat")({
         if (!hasValidAccessSession(request)) {
           return new Response("Unauthorized", { status: 401 });
         }
-        const { messages } = (await request.json()) as { messages: UIMessage[] };
+        const body = (await request.json()) as {
+          messages?: unknown;
+          workflowPhase?: unknown;
+        };
+        if (!Array.isArray(body.messages)) {
+          return new Response("Chat messages are required.", { status: 400 });
+        }
+        const phaseResult = WORKFLOW_PHASE_SCHEMA.safeParse(body.workflowPhase ?? "discover");
+        if (!phaseResult.success) {
+          return new Response("Invalid scouting workflow phase.", { status: 400 });
+        }
+        const messages = body.messages as UIMessage[];
+        const workflowPhase = phaseResult.data;
 
         const model = getBedrockModel();
         if (!model) {
           return new Response("Missing BEDROCK_API_KEY", { status: 500 });
         }
 
-
         const tools = {
           apollo_search_startups: tool({
             description:
-              "PRIMARY startup discovery via Apollo. Returns structured companies filtered to 1–50 employees and Pre-Seed/Seed/Series A funding. Use this first before falling back to Firecrawl source searches.",
+              "Structured company discovery. Searches Seed through Series B companies and returns organizations with 15-80 employees. Search regions in this priority order: United States, Europe, Africa, then Latin America. This tool does not verify live roles; research job listings before presenting companies.",
             inputSchema: z.object({
               keywords: z
                 .string()
@@ -599,7 +633,7 @@ export const Route = createFileRoute("/api/chat")({
           }),
           apollo_find_contacts: tool({
             description:
-              "PRIMARY contact lookup via Apollo. Given a company domain, returns hiring or executive contacts with verified emails when available. Use mode='hiring' (default) for companies, or pass custom titles. Automatically retries without title filter if the first search returns nothing.",
+              "Contact discovery for a company the user has selected. Returns named hiring decision-makers with email and LinkedIn details where available. Do not call until after the user has selected companies from the ranked results.",
             inputSchema: z.object({
               domain: z.string().describe("Company domain, e.g. 'acme.com'"),
               companyName: z.string().optional(),
@@ -667,8 +701,7 @@ export const Route = createFileRoute("/api/chat")({
                       }
                     }
                     return {
-                      name:
-                        p.name ?? [p.first_name, p.last_name].filter(Boolean).join(" "),
+                      name: p.name ?? [p.first_name, p.last_name].filter(Boolean).join(" "),
                       title: p.title,
                       email,
                       linkedin: p.linkedin_url,
@@ -760,14 +793,14 @@ export const Route = createFileRoute("/api/chat")({
           }),
           lusha_find_contacts: tool({
             description:
-              "Lusha contact lookup by company domain. Use as the FIRST fallback when Apollo returns no usable email (Apollo often masks emails as 'email_not_unlocked@domain.com' when out of reveal credits). Returns enriched contacts with business emails. Pass titles for the recipient role you're targeting (e.g. Head of People, COO, Chief of Staff, CTO/CPO/CMO, Recruiter/Talent Acquisition Lead, or founder if company <10 people).",
+              "Lusha contact lookup for a company the user selected. Use as a fallback when Apollo has no usable email. Pass titles relevant to the selected opening, such as an engineering, product, or marketing leader. Do not call before company selection.",
             inputSchema: z.object({
               domain: z.string().describe("Company domain, e.g. 'acme.com'"),
               titles: z
                 .array(z.string())
                 .optional()
                 .describe(
-                  "Job titles to filter (e.g. ['CEO','Founder','CTO'] or ['Head of People','Talent Acquisition'])",
+                  "Job titles relevant to selected eligible openings, such as Head of Engineering, CTO, Head of Product, or Head of Marketing",
                 ),
               seniority: z
                 .array(z.string())
@@ -825,7 +858,7 @@ export const Route = createFileRoute("/api/chat")({
           }),
           search_startups: tool({
             description:
-              "Search for startups hiring on a given source. Use this to discover candidate companies. Returns a list of result URLs and snippets.",
+              "Search a public job source for companies and live openings matching the ICP (non-junior software/engineering, AI/ML, data, product, or marketing roles). Verify the specific job page and company before qualifying a result.",
             inputSchema: z.object({
               query: z
                 .string()
@@ -861,6 +894,58 @@ export const Route = createFileRoute("/api/chat")({
               }
             },
           }),
+          present_ranked_companies: tool({
+            description:
+              "Present the verified discovery results as selectable company cards. Call once after researching companies and their live job listings, then stop and wait for the user's company selection. Include only product startups (not HR tech, recruiting/staffing, agencies, or outsourcing) at Seed-Series B with 15-80 employees, remote/distributed hiring, an eligible non-junior role, and a location in the supported priority regions. Include every verified qualifying role with its direct job URL and a posting date only when verified.",
+            inputSchema: z.object({
+              companies: z
+                .array(
+                  z.object({
+                    name: z.string().min(1),
+                    domain: z.string().optional(),
+                    website: z.string().url().optional(),
+                    stage: z.string().min(1),
+                    employeeCount: z.number().int().min(0),
+                    location: z.string().min(1),
+                    workMode: z
+                      .enum(["remote", "distributed"])
+                      .describe("Verified remote/distributed hiring arrangement"),
+                    businessType: z
+                      .enum([
+                        "product_company",
+                        "hr_tech",
+                        "recruiting_staffing",
+                        "agency",
+                        "outsourcing",
+                      ])
+                      .describe(
+                        "Use product_company for an eligible startup; classify excluded company types accurately.",
+                      ),
+                    industry: z.string().optional(),
+                    description: z.string().optional(),
+                    jobs: z
+                      .array(
+                        z.object({
+                          title: z.string().min(1),
+                          url: z.string().url(),
+                          location: z.string().optional(),
+                          postedAt: z.string().optional(),
+                        }),
+                      )
+                      .min(1),
+                  }),
+                )
+                .max(30),
+            }),
+            execute: async ({ companies }) => {
+              const rankedCompanies = rankScoutingCompanies(companies);
+              return {
+                count: rankedCompanies.length,
+                excludedCount: companies.length - rankedCompanies.length,
+                companies: rankedCompanies.slice(0, 20),
+              };
+            },
+          }),
           scrape_company: tool({
             description:
               "Scrape a company's job listing or website page to enrich it with stage, size, and hiring roles. Returns markdown content.",
@@ -870,8 +955,7 @@ export const Route = createFileRoute("/api/chat")({
             execute: async ({ url }) => {
               try {
                 const data = await firecrawlScrape(url);
-                const md: string =
-                  data?.data?.markdown ?? data?.markdown ?? "";
+                const md: string = data?.data?.markdown ?? data?.markdown ?? "";
                 const meta = data?.data?.metadata ?? data?.metadata ?? {};
                 return {
                   url,
@@ -886,7 +970,7 @@ export const Route = createFileRoute("/api/chat")({
           }),
           find_executive_contacts: tool({
             description:
-              "Extract executive contact emails (CEO, Founder, CTO, COO, Head of Eng) from a company website. Maps the site for team/about/contact/leadership pages, scrapes them, and pulls emails with role context. Call this automatically before draft_pitch.",
+              "Find named hiring decision-makers at a company selected by the user. Maps the company site for relevant leadership pages and returns sourced contact options. Do not call before the user selects that company.",
             inputSchema: z.object({
               domain: z
                 .string()
@@ -907,8 +991,7 @@ export const Route = createFileRoute("/api/chat")({
                   search: "team about contact leadership founders people",
                   limit: 30,
                 });
-                const links: string[] =
-                  mapRes?.links ?? mapRes?.data?.links ?? [];
+                const links: string[] = mapRes?.links ?? mapRes?.data?.links ?? [];
                 const keywords =
                   /(team|about|contact|leadership|people|founders?|company|who-we-are)/i;
                 for (const l of links) {
@@ -922,9 +1005,8 @@ export const Route = createFileRoute("/api/chat")({
               }
 
               const roleRegex =
-                /\b(ceo|chief executive officer|founder|co-?founder|cto|chief technology officer|coo|chief operating officer|head of engineering|vp engineering)\b/i;
-              const emailRegex =
-                /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+                /\b(ceo|chief executive officer|founder|co-?founder|cto|chief technology officer|coo|chief operating officer|head of engineering|vp engineering|engineering manager|head of product|vp product|chief product officer|head of marketing|vp marketing|chief marketing officer)\b/i;
+              const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
 
               type Contact = {
                 email: string;
@@ -938,41 +1020,36 @@ export const Route = createFileRoute("/api/chat")({
               const rankFor = (role?: string) => {
                 if (!role) return 5;
                 const r = role.toLowerCase();
-                if (/(ceo|chief executive|^founder|co-?founder)/.test(r)) return 1;
+                if (/(head of engineering|vp engineering|engineering manager)/.test(r)) return 1;
                 if (/(cto|chief technology)/.test(r)) return 2;
-                if (/(coo|chief operating)/.test(r)) return 3;
-                if (/(head of engineering|vp engineering)/.test(r)) return 4;
+                if (
+                  /(head of product|vp product|chief product|head of marketing|vp marketing|chief marketing)/.test(
+                    r,
+                  )
+                )
+                  return 3;
+                if (/(coo|chief operating)/.test(r)) return 4;
+                if (/(ceo|chief executive|founder|co-?founder)/.test(r)) return 5;
                 return 5;
               };
 
               for (const url of pickedUrls) {
                 try {
                   const data = await firecrawlScrape(url);
-                  const md: string =
-                    data?.data?.markdown ?? data?.markdown ?? "";
+                  const md: string = data?.data?.markdown ?? data?.markdown ?? "";
                   if (!md) continue;
                   const emails = md.match(emailRegex) ?? [];
                   for (const rawEmail of emails) {
                     const email = rawEmail.toLowerCase();
                     if (/\.(png|jpg|jpeg|svg|gif|webp)$/i.test(email)) continue;
-                    if (
-                      /(sentry|wixpress|example\.com|noreply|no-reply)/i.test(
-                        email,
-                      )
-                    )
-                      continue;
+                    if (/(sentry|wixpress|example\.com|noreply|no-reply)/i.test(email)) continue;
                     const emailDomain = email.split("@")[1] ?? "";
                     // prefer same-domain emails but keep others as fallback
                     const idx = md.toLowerCase().indexOf(email);
-                    const window = md.slice(
-                      Math.max(0, idx - 200),
-                      idx + 200,
-                    );
+                    const window = md.slice(Math.max(0, idx - 200), idx + 200);
                     const roleMatch = window.match(roleRegex);
                     const role = roleMatch?.[0];
-                    const rank =
-                      rankFor(role) +
-                      (emailDomain.endsWith(rootDomain) ? 0 : 0.5);
+                    const rank = rankFor(role) + (emailDomain.endsWith(rootDomain) ? 0 : 0.5);
                     const existing = contacts.get(email);
                     if (!existing || rank < existing.rank) {
                       contacts.set(email, {
@@ -1008,23 +1085,33 @@ export const Route = createFileRoute("/api/chat")({
           }),
           find_linkedin_profiles: tool({
             description:
-              "Fallback when no executive email can be found. Uses Firecrawl web search to locate LinkedIn profile URLs for a company's CEO, Founder, CTO or COO. Returns LinkedIn profile links the user can open and message directly.",
+              "Find named hiring decision-makers' public LinkedIn profiles at a company selected by the user. Use as a contact option, not as permission to draft or send outreach.",
             inputSchema: z.object({
               companyName: z.string().describe("Exact company name"),
               domain: z.string().optional().describe("Company domain, helps disambiguate"),
               roles: z
                 .array(z.string())
                 .optional()
-                .describe("Roles to target. Defaults to CEO, Founder, CTO, COO."),
+                .describe(
+                  "Roles relevant to selected openings; defaults to engineering, product, marketing leaders, and technical founders.",
+                ),
               limit: z.number().min(1).max(15).default(8),
             }),
             execute: async ({ companyName, domain, roles, limit }) => {
               const targetRoles = roles?.length
                 ? roles
-                : ["CEO", "Founder", "Co-Founder", "CTO", "COO"];
-              const rolesClause = targetRoles
-                .map((r) => `"${r}"`)
-                .join(" OR ");
+                : [
+                    "Head of Engineering",
+                    "Engineering Manager",
+                    "CTO",
+                    "Technical Co-Founder",
+                    "Head of Product",
+                    "Head of Marketing",
+                    "VP Engineering",
+                    "VP Product",
+                    "VP Marketing",
+                  ];
+              const rolesClause = targetRoles.map((r) => `"${r}"`).join(" OR ");
               const query = `site:linkedin.com/in (${rolesClause}) "${companyName}"${domain ? ` ${domain}` : ""}`;
               try {
                 const data = await firecrawlSearch(query, limit);
@@ -1062,6 +1149,35 @@ export const Route = createFileRoute("/api/chat")({
               }
             },
           }),
+          present_contact_options: tool({
+            description:
+              "Present sourced contacts at the user-selected companies as selectable contact cards. Call after contact research, then stop and wait for the user to select people. Do not draft or send outreach.",
+            inputSchema: z.object({
+              companyName: z.string().min(1),
+              domain: z.string().optional(),
+              contacts: z
+                .array(
+                  z
+                    .object({
+                      name: z.string().min(1),
+                      title: z.string().optional(),
+                      email: z.string().email().optional(),
+                      linkedin: z.string().url().optional(),
+                      source: z.string().url().optional(),
+                    })
+                    .refine((contact) => contact.email || contact.linkedin, {
+                      message: "A contact needs a work email or LinkedIn profile.",
+                    }),
+                )
+                .min(1)
+                .max(30),
+            }),
+            execute: async ({ companyName, domain, contacts }) => ({
+              companyName,
+              domain,
+              contacts,
+            }),
+          }),
           save_sourced_contacts: tool({
             description:
               "Persist discovered company and contact records in the configured Supabase database, including their source provider and source URL. Only save records returned by a provider or verified public source; do not mark inferred email guesses as verified.",
@@ -1069,8 +1185,16 @@ export const Route = createFileRoute("/api/chat")({
               company: z.object({
                 name: z.string().min(1),
                 domain: z.string().min(1),
-                websiteUrl: z.string().url().refine((url) => /^https?:\/\//i.test(url)).optional(),
-                linkedinUrl: z.string().url().refine((url) => /^https?:\/\//i.test(url)).optional(),
+                websiteUrl: z
+                  .string()
+                  .url()
+                  .refine((url) => /^https?:\/\//i.test(url))
+                  .optional(),
+                linkedinUrl: z
+                  .string()
+                  .url()
+                  .refine((url) => /^https?:\/\//i.test(url))
+                  .optional(),
                 stage: z.string().optional(),
                 employeeCount: z.number().int().nonnegative().optional(),
                 industry: z.string().optional(),
@@ -1096,11 +1220,17 @@ export const Route = createFileRoute("/api/chat")({
                       fullName: z.string().min(1),
                       title: z.string().optional(),
                       email: z.string().email().optional(),
-                      emailStatus: z
-                        .enum(["unknown", "valid", "catchall", "invalid"])
+                      emailStatus: z.enum(["unknown", "valid", "catchall", "invalid"]).optional(),
+                      linkedinUrl: z
+                        .string()
+                        .url()
+                        .refine((url) => /^https?:\/\//i.test(url))
                         .optional(),
-                      linkedinUrl: z.string().url().refine((url) => /^https?:\/\//i.test(url)).optional(),
-                      sourceUrl: z.string().url().refine((url) => /^https?:\/\//i.test(url)).optional(),
+                      sourceUrl: z
+                        .string()
+                        .url()
+                        .refine((url) => /^https?:\/\//i.test(url))
+                        .optional(),
                       externalRecordId: z.string().optional(),
                     })
                     .refine((contact) => contact.email || contact.linkedinUrl, {
@@ -1120,13 +1250,11 @@ export const Route = createFileRoute("/api/chat")({
           }),
           hunter_domain_search: tool({
             description:
-              "Hunter.io domain search. Returns all known emails for a company domain with role/seniority/department metadata. Great for finding HR/People/Talent contacts at 51–200 companies (filter department='hr') or executives (seniority='executive'). Use as a primary lead source alongside Apollo.",
+              "Hunter.io domain search fallback for a user-selected company. Returns known emails with role metadata. Use only after the user has selected the company and contact discovery is underway.",
             inputSchema: z.object({
               domain: z.string().describe("Company domain, e.g. 'acme.com'"),
               limit: z.number().min(1).max(100).default(20),
-              seniority: z
-                .enum(["junior", "senior", "executive"])
-                .optional(),
+              seniority: z.enum(["junior", "senior", "executive"]).optional(),
               department: z
                 .enum([
                   "executive",
@@ -1183,19 +1311,26 @@ export const Route = createFileRoute("/api/chat")({
               personId: z.string().optional(),
             }),
             execute: async (input) => {
-              try { return await prospeoEmailFinder(input); }
-              catch (e) { return { ...input, error: (e as Error).message }; }
+              try {
+                return await prospeoEmailFinder(input);
+              } catch (e) {
+                return { ...input, error: (e as Error).message };
+              }
             },
           }),
           prospeo_domain_search: tool({
-            description: "Prospeo company contact search — searches people at a company domain, then enriches each person to reveal verified work emails.",
+            description:
+              "Prospeo company contact search — searches people at a company domain, then enriches each person to reveal verified work emails.",
             inputSchema: z.object({
               domain: z.string(),
               limit: z.number().min(1).max(100).default(20),
             }),
             execute: async (input) => {
-              try { return await prospeoDomainSearch(input); }
-              catch (e) { return { domain: input.domain, error: (e as Error).message, emails: [] }; }
+              try {
+                return await prospeoDomainSearch(input);
+              } catch (e) {
+                return { domain: input.domain, error: (e as Error).message, emails: [] };
+              }
             },
           }),
           pdl_person_enrich: tool({
@@ -1211,8 +1346,11 @@ export const Route = createFileRoute("/api/chat")({
               minLikelihood: z.number().min(1).max(10).optional(),
             }),
             execute: async (input) => {
-              try { return await pdlPersonEnrich(input); }
-              catch (e) { return { ...input, error: (e as Error).message }; }
+              try {
+                return await pdlPersonEnrich(input);
+              } catch (e) {
+                return { ...input, error: (e as Error).message };
+              }
             },
           }),
           pdl_person_search: tool({
@@ -1224,8 +1362,11 @@ export const Route = createFileRoute("/api/chat")({
               size: z.number().min(1).max(100).optional(),
             }),
             execute: async (input) => {
-              try { return await pdlPersonSearch(input); }
-              catch (e) { return { domain: input.domain, error: (e as Error).message, people: [] }; }
+              try {
+                return await pdlPersonSearch(input);
+              } catch (e) {
+                return { domain: input.domain, error: (e as Error).message, people: [] };
+              }
             },
           }),
           tomba_domain_search: tool({
@@ -1238,8 +1379,11 @@ export const Route = createFileRoute("/api/chat")({
               seniority: z.string().optional(),
             }),
             execute: async (input) => {
-              try { return await tombaDomainSearch(input); }
-              catch (e) { return { domain: input.domain, error: (e as Error).message, emails: [] }; }
+              try {
+                return await tombaDomainSearch(input);
+              } catch (e) {
+                return { domain: input.domain, error: (e as Error).message, emails: [] };
+              }
             },
           }),
           tomba_email_finder: tool({
@@ -1250,8 +1394,11 @@ export const Route = createFileRoute("/api/chat")({
               lastName: z.string(),
             }),
             execute: async (input) => {
-              try { return await tombaEmailFinder(input); }
-              catch (e) { return { ...input, error: (e as Error).message }; }
+              try {
+                return await tombaEmailFinder(input);
+              } catch (e) {
+                return { ...input, error: (e as Error).message };
+              }
             },
           }),
           ai_source_emails: tool({
@@ -1263,7 +1410,9 @@ export const Route = createFileRoute("/api/chat")({
               targetRoles: z
                 .array(z.string())
                 .optional()
-                .describe("Roles to target, default CEO/Founder/CTO/COO/Head of People"),
+                .describe(
+                  "Roles relevant to selected openings; defaults to engineering/product/marketing leaders and technical founders",
+                ),
             }),
             execute: async ({ domain, companyName, targetRoles }) => {
               const opus = getBedrockOpusModel();
@@ -1283,8 +1432,7 @@ export const Route = createFileRoute("/api/chat")({
                   search: "team about contact leadership founders people careers",
                   limit: 30,
                 });
-                const links: string[] =
-                  mapRes?.links ?? mapRes?.data?.links ?? [];
+                const links: string[] = mapRes?.links ?? mapRes?.data?.links ?? [];
                 const kw =
                   /(team|about|contact|leadership|people|founders?|company|who-we-are|press)/i;
                 for (const l of links) {
@@ -1300,17 +1448,25 @@ export const Route = createFileRoute("/api/chat")({
               for (const u of picked) {
                 try {
                   const data = await firecrawlScrape(u);
-                  const md: string =
-                    data?.data?.markdown ?? data?.markdown ?? "";
+                  const md: string = data?.data?.markdown ?? data?.markdown ?? "";
                   if (md) chunks.push(`--- ${u} ---\n${md.slice(0, 4000)}`);
                 } catch {
                   /* skip */
                 }
               }
-              const roles =
-                targetRoles?.length
-                  ? targetRoles
-                  : ["CEO", "Founder", "Co-Founder", "CTO", "COO", "Head of People"];
+              const roles = targetRoles?.length
+                ? targetRoles
+                : [
+                    "Head of Engineering",
+                    "Engineering Manager",
+                    "CTO",
+                    "Technical Co-Founder",
+                    "Head of Product",
+                    "Head of Marketing",
+                    "VP Engineering",
+                    "VP Product",
+                    "VP Marketing",
+                  ];
               const prompt = `You are an email-sourcing assistant. Company: ${companyName ?? rootDomain} (${rootDomain}).
 Target roles: ${roles.join(", ")}.
 
@@ -1345,10 +1501,9 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
                   pattern: parsed.pattern ?? null,
                   contacts: parsed.contacts ?? [],
                   raw: parsed.contacts ? undefined : text.slice(0, 800),
-                  note:
-                    (parsed.contacts as unknown[] | undefined)?.length
-                      ? undefined
-                      : "Opus could not derive contacts. Fall back to find_linkedin_profiles.",
+                  note: (parsed.contacts as unknown[] | undefined)?.length
+                    ? undefined
+                    : "Opus could not derive contacts. Fall back to find_linkedin_profiles.",
                 };
               } catch (e) {
                 return {
@@ -1362,28 +1517,38 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
           }),
           draft_pitch: tool({
             description:
-              "Draft a personalized cold outreach pitch for Vaultio targeted at a SPECIFIC person at a specific company. REQUIRES research fields — do NOT call this until you have scraped the company site AND the recipient's LinkedIn/about page.",
+              "Draft personalized outreach only for a contact explicitly selected by the user. Requires researched fields; do not call until the user selects a named contact and the company site plus recipient's LinkedIn/about page have been researched. Never sends email.",
             inputSchema: z.object({
               companyName: z.string(),
               recipientName: z.string().describe("Named person (no role-based inboxes)"),
               recipientRole: z.string(),
-              whatTheyDo: z.string().describe("Specific — what the company actually builds, for whom"),
-              vertical: z.string().describe("Industry/vertical, e.g. fintech, devtools, healthtech, agency, marketplace"),
+              whatTheyDo: z
+                .string()
+                .describe("Specific — what the company actually builds, for whom"),
+              vertical: z
+                .string()
+                .describe("Industry/vertical, e.g. fintech, devtools, healthtech, or marketplace"),
               hiringRoles: z.array(z.string()).min(1),
               stage: z.string().optional(),
               size: z.string().optional(),
               recipientResearch: z
                 .string()
                 .min(20)
-                .describe("Concrete fact about the recipient from their LinkedIn/about page: recent post, prior company, tenure, shipped project. Used in the opener."),
+                .describe(
+                  "Concrete fact about the recipient from their LinkedIn/about page: recent post, prior company, tenure, shipped project. Used in the opener.",
+                ),
               companyResearch: z
                 .string()
                 .min(20)
-                .describe("Concrete fact about the company from their site: recent launch, product specific, customer segment, JD detail. Used to tailor positioning."),
+                .describe(
+                  "Concrete fact about the company from their site: recent launch, product specific, customer segment, JD detail. Used to tailor positioning.",
+                ),
               industryPain: z
                 .string()
                 .min(10)
-                .describe("Specific hiring pain for THIS vertical (not generic). E.g. 'fintech roles need compliance-vetted engineers'."),
+                .describe(
+                  "Specific hiring pain for THIS vertical (not generic). E.g. 'fintech roles need compliance-vetted engineers'.",
+                ),
               angle: z.string().optional().describe("Optional hook to emphasize"),
             }),
             execute: async (input) => {
@@ -1396,28 +1561,28 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
           }),
           send_pitch: tool({
             description:
-              "Send a SINGLE pitch email via Resend. From: nuel@nf.vaultio.site. Reply-To: nuel@vaultio.tech. Pass audience='vc' for investor outreach (renders a clean plain-text-style email — no marketing chrome, no CTA button). Default audience='hiring' uses the branded Vaultio layout. Use bulk_send_pitch for multiple recipients.",
+              "Send a SINGLE pitch email via Resend only after the user explicitly approves a reviewed draft in a separate message. From: nuel@nf.vaultio.site. Reply-To: nuel@vaultio.tech. Pass audience='hiring' for this app's startup hiring outreach.",
             inputSchema: z.object({
               to: z.string().email().describe("Recipient email address"),
               subject: z.string().min(1).max(200),
-              body: z
-                .string()
-                .min(1)
-                .describe("Plain-text email body. Line breaks preserved."),
+              body: z.string().min(1).describe("Plain-text email body. Line breaks preserved."),
               companyName: z.string().optional(),
               audience: z
                 .enum(["hiring", "vc"])
                 .default("hiring")
-                .describe("Kept for back-compat. Email design is unified — clean plain-text style for both."),
+                .describe(
+                  "Kept for back-compat. Email design is unified — clean plain-text style for both.",
+                ),
               ccNuel: z
                 .boolean()
                 .optional()
-                .describe("Override CC of nuel@vaultio.tech. Defaults to env CC_NUEL_ENABLED (true unless set to 'false')."),
+                .describe(
+                  "Override CC of nuel@vaultio.tech. Defaults to env CC_NUEL_ENABLED (true unless set to 'false').",
+                ),
             }),
             execute: async ({ to, subject, body, companyName, audience, ccNuel }) => {
               return sendPitchEmail({ to, subject, body, companyName, audience, ccNuel });
             },
-
           }),
           bulk_send_pitch: tool({
             description:
@@ -1447,10 +1612,17 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
               ccNuel: z
                 .boolean()
                 .optional()
-                .describe("Override CC of nuel@vaultio.tech for this whole campaign. Defaults to env CC_NUEL_ENABLED."),
+                .describe(
+                  "Override CC of nuel@vaultio.tech for this whole campaign. Defaults to env CC_NUEL_ENABLED.",
+                ),
             }),
             execute: async ({ recipients, delayMs, audience, ccNuel }) => {
-              const sent: Array<{ to: string; subject: string; resendId?: string; companyName?: string }> = [];
+              const sent: Array<{
+                to: string;
+                subject: string;
+                resendId?: string;
+                companyName?: string;
+              }> = [];
               const skippedDuplicates: string[] = [];
               const skippedInBatch: string[] = [];
               const failed: Array<{ to: string; error: string }> = [];
@@ -1511,7 +1683,10 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
               body: z.string().min(1).describe("Plain-text body. Line breaks preserved."),
               cc: z.array(z.string().email()).optional(),
               replyTo: z.string().email().optional(),
-              fromName: z.string().optional().describe("Display name override; defaults to 'Emmanuel Nwachinemelu'"),
+              fromName: z
+                .string()
+                .optional()
+                .describe("Display name override; defaults to 'Emmanuel Nwachinemelu'"),
             }),
             execute: async (input) => {
               return {
@@ -1529,7 +1704,12 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
               to: z.string().email(),
               subject: z.string().min(1).max(200),
               body: z.string().min(1),
-              cc: z.array(z.string().email()).optional().describe("Extra CC recipients. nuel@vaultio.tech is added automatically per ccNuel/env."),
+              cc: z
+                .array(z.string().email())
+                .optional()
+                .describe(
+                  "Extra CC recipients. nuel@vaultio.tech is added automatically per ccNuel/env.",
+                ),
               replyTo: z.string().email().optional(),
               fromName: z.string().optional(),
               ccNuel: z
@@ -1538,15 +1718,25 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
                 .describe("Override CC of nuel@vaultio.tech. Defaults to env CC_NUEL_ENABLED."),
               approved: z
                 .boolean()
-                .describe("Must be true. Set only after Nuel explicitly approved the draft in chat."),
+                .describe(
+                  "Must be true. Set only after Nuel explicitly approved the draft in chat.",
+                ),
             }),
             execute: async ({ to, subject, body, cc, replyTo, fromName, approved, ccNuel }) => {
               if (!approved) {
-                return { sent: false, error: "Approval required. Show the draft and wait for Nuel to say 'send it'." };
+                return {
+                  sent: false,
+                  error: "Approval required. Show the draft and wait for Nuel to say 'send it'.",
+                };
               }
               try {
                 if (await isContactOptedOut(to)) {
-                  return { sent: false, to, subject, error: "Blocked: this contact has opted out." };
+                  return {
+                    sent: false,
+                    to,
+                    subject,
+                    error: "Blocked: this contact has opted out.",
+                  };
                 }
               } catch (e) {
                 return { sent: false, to, subject, error: (e as Error).message };
@@ -1588,7 +1778,12 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
                 });
                 const data = (await res.json().catch(() => ({}))) as { id?: string };
                 if (!res.ok) {
-                  return { sent: false, to, subject, error: `Resend ${res.status}: ${JSON.stringify(data)}` };
+                  return {
+                    sent: false,
+                    to,
+                    subject,
+                    error: `Resend ${res.status}: ${JSON.stringify(data)}`,
+                  };
                 }
                 return { sent: true, to, cc: ccList, subject, resendId: data?.id };
               } catch (e) {
@@ -1598,15 +1793,74 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
           }),
         };
 
-
-
+        const toolNamesByPhase: Record<WorkflowPhase, Set<string>> = {
+          discover: new Set([
+            "apollo_search_startups",
+            "search_startups",
+            "scrape_company",
+            "present_ranked_companies",
+          ]),
+          contacts: new Set([
+            "apollo_find_contacts",
+            "fullenrich_enrich_person",
+            "fullenrich_bulk_enrich",
+            "lusha_find_contacts",
+            "lusha_enrich_person",
+            "scrape_company",
+            "find_executive_contacts",
+            "find_linkedin_profiles",
+            "hunter_domain_search",
+            "hunter_email_finder",
+            "prospeo_email_finder",
+            "prospeo_domain_search",
+            "pdl_person_enrich",
+            "pdl_person_search",
+            "tomba_domain_search",
+            "tomba_email_finder",
+            "ai_source_emails",
+            "present_contact_options",
+          ]),
+          draft: new Set([
+            "fullenrich_enrich_person",
+            "fullenrich_bulk_enrich",
+            "lusha_enrich_person",
+            "scrape_company",
+            "find_linkedin_profiles",
+            "hunter_email_finder",
+            "prospeo_email_finder",
+            "pdl_person_enrich",
+            "pdl_person_search",
+            "tomba_email_finder",
+            "ai_source_emails",
+            "save_sourced_contacts",
+            "draft_pitch",
+            "draft_generic_email",
+          ]),
+          send: new Set(["send_pitch", "bulk_send_pitch", "send_generic_email"]),
+        };
+        const availableTools = Object.fromEntries(
+          Object.entries(tools).filter(([name]) => toolNamesByPhase[workflowPhase].has(name)),
+        ) as typeof tools;
+        const phaseInstruction: Record<WorkflowPhase, string> = {
+          discover:
+            "Current stage: discover and rank companies only. Contact lookup, drafting, saving, and sending tools are unavailable.",
+          contacts:
+            "Current stage: find contacts only for the companies explicitly selected in the latest user message. Present options and stop. Drafting and sending tools are unavailable.",
+          draft:
+            "Current stage: research and draft only for the contacts explicitly selected in the latest user message. Sending tools are unavailable.",
+          send: "Current stage: the user explicitly approved a previously reviewed draft. Send only the approved draft(s); do not create new drafts or contact other people.",
+        };
 
         const result = streamText({
           model,
-          system: SYSTEM_PROMPT,
+          system: `${SYSTEM_PROMPT}\n\n${phaseInstruction[workflowPhase]}`,
           messages: await convertToModelMessages(messages),
-          tools,
-          stopWhen: stepCountIs(50),
+          tools: availableTools,
+          stopWhen: [
+            stepCountIs(50),
+            hasToolCall("present_ranked_companies"),
+            hasToolCall("present_contact_options"),
+          ],
           onError: ({ error }) => {
             console.error("[chat] streamText error:", error);
           },
@@ -1615,18 +1869,23 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
         return result.toUIMessageStreamResponse({
           originalMessages: messages,
           onError: (error) => {
-            const e = error as { statusCode?: number; status?: number; message?: string; name?: string };
+            const e = error as {
+              statusCode?: number;
+              status?: number;
+              message?: string;
+              name?: string;
+            };
             const code = e?.statusCode ?? e?.status;
             const msg = e?.message ?? String(error);
             console.error("[chat] stream failed:", code, msg);
             if (code === 403 || /forbidden|accessdenied|not authorized/i.test(msg)) {
               return `AI provider rejected the request (403). Check BEDROCK_API_KEY, BEDROCK_REGION (${process.env.BEDROCK_REGION || "us-west-2"}) and that model access is enabled for ${process.env.BEDROCK_MODEL_ID || "claude-haiku-4-5"}. Details: ${msg}`;
             }
-            if (code === 429) return `Rate limited by the AI provider. Try again shortly. Details: ${msg}`;
+            if (code === 429)
+              return `Rate limited by the AI provider. Try again shortly. Details: ${msg}`;
             return `Chat failed: ${msg}`;
           },
         });
-
       },
     },
   },
