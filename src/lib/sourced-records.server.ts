@@ -1,21 +1,24 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
-export type ContactSourceProvider =
-  | "apollo"
-  | "firecrawl"
-  | "fullenrich"
-  | "hunter"
-  | "linkedin"
-  | "lusha"
-  | "pdl"
-  | "prospeo"
-  | "tomba"
-  | "wellfound"
-  | "f6s"
-  | "yc";
+export const CONTACT_SOURCE_PROVIDERS = [
+  "apollo",
+  "firecrawl",
+  "fullenrich",
+  "hunter",
+  "linkedin",
+  "lusha",
+  "pdl",
+  "prospeo",
+  "tomba",
+  "wellfound",
+  "f6s",
+  "yc",
+] as const;
+export type ContactSourceProvider = (typeof CONTACT_SOURCE_PROVIDERS)[number];
 
 export type SourcedContactInput = {
   fullName: string;
+  provider?: ContactSourceProvider;
   title?: string;
   email?: string;
   emailStatus?: "unknown" | "valid" | "catchall" | "invalid";
@@ -57,7 +60,7 @@ export async function isContactOptedOut(email: string): Promise<boolean> {
 
 export async function saveSourcedContacts(input: {
   company: SourcedCompanyInput;
-  provider: ContactSourceProvider;
+  provider?: ContactSourceProvider;
   contacts: SourcedContactInput[];
 }) {
   const domain = normalizeDomain(input.company.domain);
@@ -92,6 +95,10 @@ export async function saveSourcedContacts(input: {
       const linkedinUrl = contact.linkedinUrl?.trim() || null;
       if (!email && !linkedinUrl) {
         throw new Error("A contact must include an email address or LinkedIn URL.");
+      }
+      const provider = contact.provider ?? input.provider;
+      if (!provider) {
+        throw new Error("A source provider is required to save a contact.");
       }
 
       let existing: {
@@ -132,7 +139,7 @@ export async function saveSourcedContacts(input: {
             ? existing?.email === email
               ? existing.email_status
               : "unknown"
-            : existing?.email_status ?? "unknown"),
+            : (existing?.email_status ?? "unknown")),
         linkedin_url: linkedinUrl ?? existing?.linkedin_url ?? null,
         last_sourced_at: now,
         updated_at: now,
@@ -144,17 +151,13 @@ export async function saveSourcedContacts(input: {
             .eq("id", existing.id)
             .select("id")
             .single()
-        : await supabaseAdmin
-            .from("sourced_contacts")
-            .insert(record)
-            .select("id")
-            .single();
+        : await supabaseAdmin.from("sourced_contacts").insert(record).select("id").single();
       if (write.error) throw new Error(write.error.message);
       saved += 1;
 
       const { error: sourceError } = await supabaseAdmin.from("contact_sources").insert({
         contact_id: write.data.id,
-        provider: input.provider,
+        provider,
         source_url: contact.sourceUrl,
         external_record_id: contact.externalRecordId,
         metadata: { email_status: contact.emailStatus ?? "unknown" },
