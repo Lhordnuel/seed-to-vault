@@ -39,6 +39,8 @@ npm run build
 npm run lint
 ```
 
+For Cloudflare Workers Builds, use `npm run build` as the build command and `npx wrangler deploy` as the deploy command. The Wrangler configuration deploys the generated `.output/server` bundle and `.output/public` assets; deploying the raw TanStack source entry directly does not work.
+
 ## Configuration
 
 Set server-side credentials in your local environment or deployment environment. Never commit API keys or passwords.
