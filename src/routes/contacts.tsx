@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Building2,
   ChevronLeft,
@@ -41,6 +41,7 @@ type ContactRecord = {
     source_url: string | null;
     observed_at: string;
   }>;
+  isExternal: boolean;
 };
 
 type ContactsResponse = {
@@ -48,6 +49,7 @@ type ContactsResponse = {
   hasMore: boolean;
   page: number;
   total: number;
+  searchSource?: "database" | "apollo";
 };
 
 export const Route = createFileRoute("/contacts")({
@@ -66,15 +68,21 @@ function ContactsPage() {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(false);
+  const [searchSource, setSearchSource] = useState<ContactsResponse["searchSource"]>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pendingOptOut, setPendingOptOut] = useState<string | null>(null);
+  const requestVersion = useRef(0);
 
-  const loadRecords = useCallback(async (pageToLoad: number) => {
+  const loadRecords = useCallback(async (pageToLoad: number, searchTerm = "") => {
+    const requestId = ++requestVersion.current;
     setLoading(true);
     setError(null);
+    setSearchSource(undefined);
     try {
-      const response = await fetch(`/api/contacts?page=${pageToLoad}`, {
+      const params = new URLSearchParams({ page: String(pageToLoad) });
+      if (searchTerm.trim()) params.set("q", searchTerm.trim());
+      const response = await fetch(`/api/contacts?${params}`, {
         credentials: "same-origin",
         cache: "no-store",
       });
@@ -86,38 +94,25 @@ function ContactsPage() {
         );
       }
       const result = (await response.json()) as ContactsResponse;
+      if (requestId !== requestVersion.current) return;
       setRecords(result.contacts);
       setTotal(result.total);
       setHasMore(result.hasMore);
       setPage(result.page);
+      setSearchSource(result.searchSource);
     } catch (e) {
-      setError((e as Error).message);
+      if (requestId === requestVersion.current) {
+        setError((e as Error).message);
+      }
     } finally {
-      setLoading(false);
+      if (requestId === requestVersion.current) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    void loadRecords(0);
-  }, [loadRecords]);
-
-  const filteredRecords = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    if (!term) return records;
-    return records.filter((record) =>
-      [
-        record.full_name,
-        record.title,
-        record.email,
-        record.company?.name,
-        record.company?.domain,
-        record.company?.industry,
-        ...record.sources.map((source) => source.provider),
-      ]
-        .filter(Boolean)
-        .some((value) => value?.toLowerCase().includes(term)),
-    );
-  }, [query, records]);
+    const timer = window.setTimeout(() => void loadRecords(0, query), query.trim() ? 350 : 0);
+    return () => window.clearTimeout(timer);
+  }, [loadRecords, query]);
 
   const companyCount = new Set(records.map((record) => record.company?.domain).filter(Boolean)).size;
   const emailCount = records.filter((record) => record.email).length;
@@ -137,7 +132,7 @@ function ContactsPage() {
         const result = (await response.json().catch(() => ({}))) as { error?: string };
         throw new Error(result.error ?? "Could not save the contact preference.");
       }
-      await loadRecords(page);
+      await loadRecords(page, query);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -160,14 +155,18 @@ function ContactsPage() {
                 Companies and people found by your scouting providers, with source history and contact preferences.
               </p>
             </div>
-            <Button variant="outline" onClick={() => void loadRecords(page)} disabled={loading}>
+            <Button variant="outline" onClick={() => void loadRecords(page, query)} disabled={loading}>
               <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
               Refresh
             </Button>
           </div>
 
           <div className="mt-8 grid gap-3 sm:grid-cols-3">
-            <StatCard label="Saved contacts" value={total} icon={<UsersRound className="h-4 w-4" />} />
+            <StatCard
+              label={query.trim() ? "Matching contacts" : "Saved contacts"}
+              value={total}
+              icon={<UsersRound className="h-4 w-4" />}
+            />
             <StatCard label="Companies in this page" value={companyCount} icon={<Building2 className="h-4 w-4" />} />
             <StatCard label="Email opt-outs" value={optedOutCount} icon={<ShieldCheck className="h-4 w-4" />} />
           </div>
@@ -181,7 +180,7 @@ function ContactsPage() {
               <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search this page's contacts, companies, or sources"
+                placeholder="Search saved contacts by company name; searches Apollo if none match"
                 className="pl-9"
                 aria-label="Search contacts"
               />
@@ -202,7 +201,11 @@ function ContactsPage() {
               <div>
                 <h2 className="font-semibold">Sourced contacts</h2>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {loading ? "Syncing with your Supabase project…" : `${filteredRecords.length} records shown`}
+                  {loading
+                    ? "Searching saved contacts…"
+                    : searchSource === "apollo"
+                      ? `${records.length} results from Apollo · not saved`
+                      : `${records.length} records shown${searchSource === "database" ? " · from saved contacts" : ""}`}
                 </p>
               </div>
               <div className="flex items-center gap-1">
@@ -211,7 +214,7 @@ function ContactsPage() {
                   size="icon-sm"
                   aria-label="Previous page"
                   disabled={loading || page === 0}
-                  onClick={() => void loadRecords(page - 1)}
+                  onClick={() => void loadRecords(page - 1, query)}
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
@@ -223,7 +226,7 @@ function ContactsPage() {
                   size="icon-sm"
                   aria-label="Next page"
                   disabled={loading || !hasMore}
-                  onClick={() => void loadRecords(page + 1)}
+                  onClick={() => void loadRecords(page + 1, query)}
                 >
                   <ChevronRight className="h-4 w-4" />
                 </Button>
@@ -234,18 +237,20 @@ function ContactsPage() {
               <div className="px-5 py-16 text-center text-sm text-muted-foreground">
                 Loading saved contacts…
               </div>
-            ) : filteredRecords.length === 0 ? (
+            ) : records.length === 0 ? (
               <div className="px-5 py-16 text-center">
                 <UsersRound className="mx-auto h-8 w-8 text-muted-foreground/50" />
                 <h3 className="mt-3 font-medium">
-                  {records.length ? "No matching contacts" : "Your contact list is ready"}
+                  {query.trim()
+                    ? "No matching contacts found"
+                    : "Your contact list is ready"}
                 </h3>
                 <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-                  {records.length
-                    ? "Try a different search."
+                  {query.trim()
+                    ? "No saved contacts or Apollo results matched that company. Try another company name."
                     : "Run a startup or contact search in chat. Sourced people and their provider history will appear here."}
                 </p>
-                {!records.length ? (
+                {!query.trim() ? (
                   <Button asChild className="mt-4">
                     <Link to="/">Start scouting</Link>
                   </Button>
@@ -253,7 +258,7 @@ function ContactsPage() {
               </div>
             ) : (
               <div className="divide-y">
-                {filteredRecords.map((record) => {
+                {records.map((record) => {
                   const latestSource = record.sources[0];
                   return (
                     <article key={record.id} className="flex flex-col gap-4 px-5 py-5 lg:flex-row lg:items-center lg:justify-between">
@@ -278,9 +283,11 @@ function ContactsPage() {
                         </p>
                         {record.company ? (
                           <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
-                            <a href={`https://${record.company.domain}`} target="_blank" rel="noreferrer" className="hover:underline">
-                              {record.company.domain}
-                            </a>
+                            {record.company.domain ? (
+                              <a href={`https://${record.company.domain}`} target="_blank" rel="noreferrer" className="hover:underline">
+                                {record.company.domain}
+                              </a>
+                            ) : null}
                             {record.company.linkedin_url ? (
                               <a href={record.company.linkedin_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:underline">
                                 <Link2 className="h-3 w-3" />
@@ -336,7 +343,7 @@ function ContactsPage() {
                               : "Not reviewed for redistribution"}
                           </p>
                         </div>
-                        {!record.do_not_contact ? (
+                        {!record.isExternal && !record.do_not_contact ? (
                           <Button
                             variant="outline"
                             size="sm"
