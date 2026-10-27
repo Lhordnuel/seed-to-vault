@@ -45,6 +45,7 @@ For Cloudflare Workers Builds, use `npm run build` as the build command and `npx
 
 Set server-side credentials in your local environment or deployment environment. Never commit API keys or passwords.
 Copy `.env.example` to `.env` and fill in the values from the Supabase project you own. The server role key must remain server-side; never add it to a `VITE_` variable or browser code.
+Chat and email-sourcing use Cloudflare Workers AI through the `AI` binding in `wrangler.jsonc`; no Bedrock key is required.
 
 | Variable                                                | Purpose                                                                                            |
 | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
@@ -54,7 +55,6 @@ Copy `.env.example` to `.env` and fill in the values from the Supabase project y
 | `SUPABASE_PUBLISHABLE_KEY`                              | Public key used by server-side auth middleware.                                                    |
 | `VITE_SUPABASE_PROJECT_ID`                              | Project reference used by browser-side auth storage.                                               |
 | `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` | Optional browser-side Supabase settings; use only the public key here, never the service-role key. |
-| `BEDROCK_API_KEY`                                       | Required for the AI chat and research tools.                                                       |
 | `APP_ACCESS_PASSWORD`                                   | Required to unlock the password-protected app.                                                     |
 | `APOLLO_API_KEY`                                        | Company discovery and contact lookup.                                                              |
 | `FIRECRAWL_API_KEY`                                     | Public web search and page scraping.                                                               |
@@ -62,7 +62,7 @@ Copy `.env.example` to `.env` and fill in the values from the Supabase project y
 | `CC_NUEL_ENABLED`                                       | Optional; controls the default CC to `nuel@vaultio.tech` when sending. Defaults to `true`.         |
 | `RESEND_WEBHOOK_SECRET`                                 | Required to verify Resend delivery webhook signatures.                                             |
 
-Additional enrichment integrations are available through `FULLENRICH_API_KEY`, `LUSHA_API_KEY`, `HUNTER_API_KEY`, `PROSPEO_API_KEY`, `PEOPLE_DATA_LABS_API_KEY`, and `TOMBA_API_KEY` plus `TOMBA_SECRET_KEY`. These are optional; configure only the providers you intend to use. Bedrock model and region overrides are available through `BEDROCK_MODEL_ID`, `BEDROCK_OPUS_MODEL_ID`, and `BEDROCK_REGION`.
+Additional enrichment integrations are available through `FULLENRICH_API_KEY`, `LUSHA_API_KEY`, `HUNTER_API_KEY`, `PROSPEO_API_KEY`, `PEOPLE_DATA_LABS_API_KEY`, and `TOMBA_API_KEY` plus `TOMBA_SECRET_KEY`. These are optional; configure only the providers you intend to use.
 
 Apply the SQL files in `supabase/migrations/` to your Supabase project in filename order (or run the new scouting migration in the Supabase SQL Editor). The scouting schema keeps companies, contacts, and source observations in separate tables; it also records opt-outs and links email delivery events to contacts. Contacts are not marked eligible for commercialization automatically; a lawful basis and a separate review are required. Only the trusted server role can access these tables. Use provider data only in accordance with the provider's terms and applicable privacy requirements.
 
@@ -72,6 +72,6 @@ The app access password now creates a signed, `HttpOnly` session cookie. Configu
 
 - React and TanStack Start with Vite
 - AI SDK for streaming chat and tool use
-- AWS Bedrock for the AI model
+- Cloudflare Workers AI for chat and email-sourcing
 - Apollo, Firecrawl, and optional enrichment providers for company and contact research
 - Resend for approved email delivery
