@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 const COOKIE_NAME = "startup_scout_session";
-const SESSION_SECONDS = 60 * 60 * 24 * 7;
+export const ACCESS_SESSION_MAX_AGE = 60 * 60 * 24 * 7;
 
 function sessionSignature(expiresAt: number, password: string): string {
   return createHmac("sha256", password)
@@ -10,7 +10,7 @@ function sessionSignature(expiresAt: number, password: string): string {
 }
 
 export function createAccessSession(password: string): string {
-  const expiresAt = Math.floor(Date.now() / 1000) + SESSION_SECONDS;
+  const expiresAt = Math.floor(Date.now() / 1000) + ACCESS_SESSION_MAX_AGE;
   return `${expiresAt}.${sessionSignature(expiresAt, password)}`;
 }
 
@@ -34,7 +34,7 @@ export function hasValidAccessSession(request: Request): boolean {
   if (!expiresAtText || !signature || rest.length > 0) return false;
   const expiresAt = Number(expiresAtText);
   const now = Math.floor(Date.now() / 1000);
-  if (!Number.isSafeInteger(expiresAt) || expiresAt <= now || expiresAt > now + SESSION_SECONDS) {
+  if (!Number.isSafeInteger(expiresAt) || expiresAt <= now || expiresAt > now + ACCESS_SESSION_MAX_AGE) {
     return false;
   }
 

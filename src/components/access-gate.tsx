@@ -1,13 +1,10 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useServerFn } from "@tanstack/react-start";
-import { verifyAccessPassword } from "@/lib/access.functions";
 
 export function AccessGate({ children }: { children: React.ReactNode }) {
   const [unlocked, setUnlocked] = useState<boolean | null>(null);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const verify = useServerFn(verifyAccessPassword);
 
   useEffect(() => {
     fetch("/api/session", { credentials: "same-origin", cache: "no-store" })
@@ -32,14 +29,28 @@ export function AccessGate({ children }: { children: React.ReactNode }) {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await verify({ data: { password } });
-      if (res.ok) {
+      const response = await fetch("/api/session", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      if (response.ok) {
         setUnlocked(true);
       } else {
-        setError(res.error ?? "Incorrect password");
+        const result: unknown = await response.json().catch(() => null);
+        const message =
+          result &&
+          typeof result === "object" &&
+          "error" in result &&
+          typeof result.error === "string"
+            ? result.error
+            : `Login failed (HTTP ${response.status}).`;
+        setError(message);
       }
-    } catch {
-      setError("Something went wrong. Try again.");
+    } catch (error) {
+      console.error("[Access] Login request failed.", error);
+      setError("Could not reach the login service. Check your connection and try again.");
     } finally {
       setSubmitting(false);
     }
