@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { hasValidAccessSession } from "@/lib/access-session.server";
+import { getResendEmail } from "@/lib/resend.server";
 
 /**
  * Poll Resend for the status of one or more email IDs.
@@ -16,11 +17,10 @@ export const Route = createFileRoute("/api/email-status")({
         if (!hasValidAccessSession(request)) {
           return new Response("Unauthorized", { status: 401 });
         }
-        const lovableKey = process.env.LOVABLE_API_KEY;
         const resendKey = process.env.RESEND_API_KEY;
-        if (!lovableKey || !resendKey) {
+        if (!resendKey) {
           return new Response(
-            JSON.stringify({ error: "Resend connector not configured" }),
+            JSON.stringify({ error: "RESEND_API_KEY secret is not configured." }),
             { status: 500, headers: { "Content-Type": "application/json" } },
           );
         }
@@ -40,23 +40,7 @@ export const Route = createFileRoute("/api/email-status")({
         const statuses = await Promise.all(
           uniqueIds.map(async (id) => {
             try {
-              const r = await fetch(
-                `https://connector-gateway.lovable.dev/resend/emails/${encodeURIComponent(id)}`,
-                {
-                  headers: {
-                    Authorization: `Bearer ${lovableKey}`,
-                    "X-Connection-Api-Key": resendKey,
-                  },
-                },
-              );
-              const data = (await r.json().catch(() => ({}))) as Record<string, any>;
-              if (!r.ok) {
-                if (r.status === 401 || r.status === 403) {
-                  authNotice = "Resend live lookup is blocked because the connected key is send-only. Delivery updates will appear from Resend webhooks once configured with delivered/opened/bounced events.";
-                  return { id, last_event: "sent" };
-                }
-                return { id, last_event: "sent", error: `${r.status}` };
-              }
+              const data = await getResendEmail(id);
               return {
                 id,
                 to: Array.isArray(data.to) ? data.to[0] : data.to,
@@ -64,8 +48,14 @@ export const Route = createFileRoute("/api/email-status")({
                 last_event: data.last_event ?? data.status,
                 created_at: data.created_at,
               };
-            } catch (e) {
-              return { id, last_event: "sent", error: (e as Error).message };
+            } catch (error) {
+              const message = (error as Error).message;
+              if (/Resend (401|403):/.test(message)) {
+                authNotice =
+                  "Resend could not read email status with this API key. Use a Resend API key with permission to read emails.";
+                return { id, last_event: "sent" };
+              }
+              return { id, last_event: "sent", error: message };
             }
           }),
         );

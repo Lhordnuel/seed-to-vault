@@ -10,6 +10,7 @@ import {
 } from "ai";
 import { z } from "zod";
 import { getWorkersAIModel } from "@/lib/workers-ai.server";
+import { sendResendEmail } from "@/lib/resend.server";
 
 import { firecrawlMap, firecrawlScrape, firecrawlSearch } from "@/lib/firecrawl.server";
 import {
@@ -481,8 +482,7 @@ async function sendPitchEmail(opts: {
     return { sent: false, to, subject, error: reuse.reason };
   }
   const resendKey = process.env.RESEND_API_KEY;
-  const lovableKey = process.env.LOVABLE_API_KEY;
-  if (!resendKey || !lovableKey) {
+  if (!resendKey) {
     return { sent: false, to, subject, error: "Email service not configured." };
   }
   try {
@@ -528,27 +528,15 @@ async function sendPitchEmail(opts: {
     void audience;
 
     const ccList = resolveCcList(ccNuel);
-    const res = await fetch("https://connector-gateway.lovable.dev/resend/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${lovableKey}`,
-        "X-Connection-Api-Key": resendKey,
-      },
-      body: JSON.stringify({
-        from: "Emmanuel Nwachinemelu <nuel@nf.vaultio.site>",
-        to: [to],
-        ...(ccList.length ? { cc: ccList } : {}),
-        reply_to: "nuel@vaultio.tech",
-        subject,
-        text: body,
-        html,
-      }),
+    const resendId = await sendResendEmail({
+      from: "Emmanuel Nwachinemelu <nuel@nf.vaultio.site>",
+      to: [to],
+      ...(ccList.length ? { cc: ccList } : {}),
+      reply_to: "nuel@vaultio.tech",
+      subject,
+      text: body,
+      html,
     });
-    const data = (await res.json().catch(() => ({}))) as { id?: string };
-    if (!res.ok) {
-      return { sent: false, to, subject, error: `Resend ${res.status}: ${JSON.stringify(data)}` };
-    }
     sentEmailsThisSession.add(to.toLowerCase().trim());
     recordSent(subject, body);
     return {
@@ -557,7 +545,7 @@ async function sendPitchEmail(opts: {
       subject,
       companyName,
       replyTo: "nuel@vaultio.tech",
-      resendId: data?.id,
+      resendId,
       cc: ccList,
     };
   } catch (e) {
@@ -1719,8 +1707,7 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
                 return { sent: false, to, subject, error: (e as Error).message };
               }
               const resendKey = process.env.RESEND_API_KEY;
-              const lovableKey = process.env.LOVABLE_API_KEY;
-              if (!resendKey || !lovableKey) {
+              if (!resendKey) {
                 return { sent: false, error: "Email service not configured." };
               }
               const esc = (s: string) =>
@@ -1735,34 +1722,16 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
               const html = `<!doctype html><html><body style="margin:0;padding:0;background:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#111;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="left"><table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;"><tr><td style="padding:24px 24px 24px;">${blocks}</td></tr></table></td></tr></table></body></html>`;
               const ccList = resolveCcList(ccNuel, cc);
               try {
-                const res = await fetch("https://connector-gateway.lovable.dev/resend/emails", {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${lovableKey}`,
-                    "X-Connection-Api-Key": resendKey,
-                  },
-                  body: JSON.stringify({
-                    from: `${fromName ?? "Emmanuel Nwachinemelu"} <nuel@nf.vaultio.site>`,
-                    to: [to],
-                    ...(ccList.length ? { cc: ccList } : {}),
-                    reply_to: replyTo ?? "nuel@vaultio.tech",
-
-                    subject,
-                    text: body,
-                    html,
-                  }),
+                const resendId = await sendResendEmail({
+                  from: `${fromName ?? "Emmanuel Nwachinemelu"} <nuel@nf.vaultio.site>`,
+                  to: [to],
+                  ...(ccList.length ? { cc: ccList } : {}),
+                  reply_to: replyTo ?? "nuel@vaultio.tech",
+                  subject,
+                  text: body,
+                  html,
                 });
-                const data = (await res.json().catch(() => ({}))) as { id?: string };
-                if (!res.ok) {
-                  return {
-                    sent: false,
-                    to,
-                    subject,
-                    error: `Resend ${res.status}: ${JSON.stringify(data)}`,
-                  };
-                }
-                return { sent: true, to, cc: ccList, subject, resendId: data?.id };
+                return { sent: true, to, cc: ccList, subject, resendId };
               } catch (e) {
                 return { sent: false, to, subject, error: (e as Error).message };
               }
