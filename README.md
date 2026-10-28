@@ -46,6 +46,7 @@ For Cloudflare Workers Builds, use `npm run build` as the build command and `npx
 Set server-side credentials in your local environment or deployment environment. Never commit API keys or passwords.
 Copy `.env.example` to `.env` and fill in the values from the Supabase project you own. The server role key must remain server-side; never add it to a `VITE_` variable or browser code.
 Chat and email-sourcing use Cloudflare Workers AI through the `AI` binding in `wrangler.jsonc`; no Bedrock key is required.
+Email sending and status checks call the Resend API directly. Store `RESEND_API_KEY` as an encrypted Cloudflare Worker secret with `npx wrangler secret put RESEND_API_KEY`; do not add it under `vars` in `wrangler.jsonc`.
 
 | Variable                                                | Purpose                                                                                            |
 | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
@@ -58,7 +59,7 @@ Chat and email-sourcing use Cloudflare Workers AI through the `AI` binding in `w
 | `APP_ACCESS_PASSWORD`                                   | Required to unlock the password-protected app.                                                     |
 | `APOLLO_API_KEY`                                        | Company discovery and contact lookup.                                                              |
 | `FIRECRAWL_API_KEY`                                     | Public web search and page scraping.                                                               |
-| `RESEND_API_KEY` and `LOVABLE_API_KEY`                  | Required to send outreach emails.                                                                  |
+| `RESEND_API_KEY`                                        | Cloudflare secret used to send emails and read email status through Resend.                        |
 | `CC_NUEL_ENABLED`                                       | Optional; controls the default CC to `nuel@vaultio.tech` when sending. Defaults to `true`.         |
 | `RESEND_WEBHOOK_SECRET`                                 | Required to verify Resend delivery webhook signatures.                                             |
 

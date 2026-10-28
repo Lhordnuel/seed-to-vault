@@ -7,6 +7,9 @@
   "ai": {
     "binding": "AI",
   },
+  "secrets": {
+    "required": ["RESEND_API_KEY"],
+  },
   "assets": {
     "binding": "ASSETS",
     "directory": ".output/public",
