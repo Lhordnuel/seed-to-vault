@@ -4,11 +4,8 @@
   "compatibility_date": "2025-09-24",
   "compatibility_flags": ["nodejs_compat"],
   "main": ".output/server/index.mjs",
-  "ai": {
-    "binding": "AI",
-  },
   "secrets": {
-    "required": ["RESEND_API_KEY"],
+    "required": ["RESEND_API_KEY", "MODEL_API_KEY"],
   },
   "assets": {
     "binding": "ASSETS",

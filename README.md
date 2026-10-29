@@ -45,7 +45,7 @@ For Cloudflare Workers Builds, use `npm run build` as the build command and `npx
 
 Set server-side credentials in your local environment or deployment environment. Never commit API keys or passwords.
 Copy `.env.example` to `.env` and fill in the values from the Supabase project you own. The server role key must remain server-side; never add it to a `VITE_` variable or browser code.
-Chat and email-sourcing use Cloudflare Workers AI through the `AI` binding in `wrangler.jsonc`; no Bedrock key is required.
+Chat and email-sourcing use Meta Model API (`muse-spark-1.3`). Set `MODEL_API_KEY` as an encrypted Cloudflare Worker secret with `npx wrangler secret put MODEL_API_KEY`; do not add it under `vars` in `wrangler.jsonc`.
 Email sending and status checks call the Resend API directly. Store `RESEND_API_KEY` as an encrypted Cloudflare Worker secret with `npx wrangler secret put RESEND_API_KEY`; do not add it under `vars` in `wrangler.jsonc`.
 
 | Variable                                                | Purpose                                                                                            |
@@ -57,6 +57,7 @@ Email sending and status checks call the Resend API directly. Store `RESEND_API_
 | `VITE_SUPABASE_PROJECT_ID`                              | Project reference used by browser-side auth storage.                                               |
 | `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` | Optional browser-side Supabase settings; use only the public key here, never the service-role key. |
 | `APP_ACCESS_PASSWORD`                                   | Required to unlock the password-protected app.                                                     |
+| `MODEL_API_KEY`                                         | Cloudflare secret for Meta Model API chat and email-sourcing (`muse-spark-1.3`).                    |
 | `APOLLO_API_KEY`                                        | Company discovery and contact lookup.                                                              |
 | `FIRECRAWL_API_KEY`                                     | Public web search and page scraping.                                                               |
 | `RESEND_API_KEY`                                        | Cloudflare secret used to send emails and read email status through Resend.                        |
@@ -73,6 +74,6 @@ The app access password now creates a signed, `HttpOnly` session cookie. Configu
 
 - React and TanStack Start with Vite
 - AI SDK for streaming chat and tool use
-- Cloudflare Workers AI for chat and email-sourcing
+- Meta Model API for chat and email-sourcing
 - Apollo, Firecrawl, and optional enrichment providers for company and contact research
 - Resend for approved email delivery
