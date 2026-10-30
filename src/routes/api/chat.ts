@@ -9,7 +9,7 @@ import {
   type UIMessage,
 } from "ai";
 import { z } from "zod";
-import { getWorkersAIModel } from "@/lib/workers-ai.server";
+import { getMetaAIModel } from "@/lib/meta-ai.server";
 import { sendResendEmail } from "@/lib/resend.server";
 
 import { firecrawlMap, firecrawlScrape, firecrawlSearch } from "@/lib/firecrawl.server";
@@ -295,7 +295,7 @@ How to work — user-controlled stages:
    f. \`prospeo_email_finder\` / \`prospeo_domain_search\` if Hunter fails.
    g. \`pdl_person_enrich\` / \`pdl_person_search\` (People Data Labs) if Prospeo fails — best when you have a name or LinkedIn URL.
    h. \`tomba_domain_search\` / \`tomba_email_finder\` if PDL fails.
-   i. \`ai_source_emails\` (Cloudflare Workers AI) if every provider above failed — scrapes site + reasons about likely patterns.
+   i. \`ai_source_emails\` (Meta Model API) if every provider above failed — scrapes site + reasons about likely patterns.
    j. \`find_linkedin_profiles\` (Firecrawl LinkedIn search) ONLY as the final fallback when no email exists anywhere. Surface the LinkedIn URLs so Nuel can DM manually.
 5. RESEARCH PASS (MANDATORY before draft_pitch): after contact selection, for each recipient, run \`scrape_company\` on the company site AND on the recipient's LinkedIn/about page. Record 2–3 specific facts and the industry pain you'll lead with.
 6. \`draft_pitch\` using the PITCH FRAMEWORK + the correct ROLE-FAMILY VARIANT. Draft only for contacts Nuel selected. Show drafts and wait for explicit approval before any send.
@@ -574,9 +574,9 @@ export const Route = createFileRoute("/api/chat")({
         const messages = body.messages as UIMessage[];
         const workflowPhase = phaseResult.data;
 
-        const model = getWorkersAIModel();
+        const model = getMetaAIModel();
         if (!model) {
-          return new Response("Cloudflare Workers AI binding (AI) is not configured.", {
+          return new Response("Meta Model API is not configured. Set the MODEL_API_KEY secret.", {
             status: 500,
           });
         }
@@ -1368,7 +1368,7 @@ export const Route = createFileRoute("/api/chat")({
           }),
           ai_source_emails: tool({
             description:
-              "Source executive emails using Cloudflare Workers AI as a reasoning step. Use ONLY when Apollo + Hunter have both failed. It scrapes team/about/contact pages and asks the model to extract any emails present and infer the most likely email pattern (e.g. first.last@domain). Returns extracted emails plus inferred-pattern guesses with confidence.",
+              "Source executive emails using Meta Model API as a reasoning step. Use ONLY when Apollo + Hunter have both failed. It scrapes team/about/contact pages and asks the model to extract any emails present and infer the most likely email pattern (e.g. first.last@domain). Returns extracted emails plus inferred-pattern guesses with confidence.",
             inputSchema: z.object({
               domain: z.string().describe("Company domain, e.g. acme.com"),
               companyName: z.string().optional(),
@@ -1380,11 +1380,11 @@ export const Route = createFileRoute("/api/chat")({
                 ),
             }),
             execute: async ({ domain, companyName, targetRoles }) => {
-              const model = getWorkersAIModel();
+              const model = getMetaAIModel();
               if (!model) {
                 return {
                   error:
-                    "Cloudflare Workers AI is not configured. Skip ai_source_emails and go straight to find_linkedin_profiles.",
+                    "Meta Model API is not configured. Skip ai_source_emails and go straight to find_linkedin_profiles.",
                 };
               }
               const homepage = /^https?:\/\//i.test(domain)
@@ -1824,7 +1824,7 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
             const msg = e?.message ?? String(error);
             console.error("[chat] stream failed:", code, msg);
             if (code === 403 || /forbidden|accessdenied|not authorized/i.test(msg)) {
-              return `Cloudflare Workers AI rejected the request (403). Check the AI binding and model availability. Details: ${msg}`;
+              return `Meta Model API rejected the request (403). Check the API key and model access. Details: ${msg}`;
             }
             if (code === 429)
               return `Rate limited by the AI provider. Try again shortly. Details: ${msg}`;
