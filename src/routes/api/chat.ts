@@ -33,6 +33,7 @@ import {
 } from "@/lib/sourced-records.server";
 import { hasValidAccessSession } from "@/lib/access-session.server";
 import { rankScoutingCompanies } from "@/lib/scouting-rank";
+import { hasExplicitDraftApproval } from "@/lib/workflow-phase";
 
 // CC configuration — toggle CC'ing nuel@vaultio.tech per environment or per call.
 // Env var CC_NUEL_ENABLED ("true"/"false", default "true") controls the default.
@@ -572,7 +573,9 @@ export const Route = createFileRoute("/api/chat")({
           return new Response("Invalid scouting workflow phase.", { status: 400 });
         }
         const messages = body.messages as UIMessage[];
-        const workflowPhase = phaseResult.data;
+        const requestedPhase = phaseResult.data;
+        const sendBlocked = requestedPhase === "send" && !hasExplicitDraftApproval(body.messages);
+        const workflowPhase = sendBlocked ? "draft" : requestedPhase;
 
         const model = getMetaAIModel();
         if (!model) {
@@ -1798,7 +1801,11 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
 
         const result = streamText({
           model,
-          system: `${SYSTEM_PROMPT}\n\n${phaseInstruction[workflowPhase]}`,
+          system: `${SYSTEM_PROMPT}\n\n${phaseInstruction[workflowPhase]}${
+            sendBlocked
+              ? "\n\nA send phase was requested without a completed draft followed by explicit approval. Do not send or imply that anything was sent; explain that a draft must be shown and explicitly approved first."
+              : ""
+          }`,
           messages: await convertToModelMessages(messages),
           tools: availableTools,
           stopWhen: [

@@ -1055,7 +1055,7 @@ export const PromptInputTextarea = ({
 
   return (
     <InputGroupTextarea
-      className={cn("field-sizing-content max-h-48 min-h-16", className)}
+      className={cn("field-sizing-content max-h-48 min-h-16 rounded-none border-0 bg-transparent shadow-none placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-0", className)}
       name="message"
       onCompositionEnd={handleCompositionEnd}
       onCompositionStart={handleCompositionStart}

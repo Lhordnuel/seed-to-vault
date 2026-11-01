@@ -37,6 +37,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { upsertThread, titleFromMessages, type Thread } from "@/lib/threads";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { hasExplicitDraftApproval } from "@/lib/workflow-phase";
 import logo from "@/assets/logo.png";
 
 type WorkflowPhase = "discover" | "contacts" | "draft" | "send";
@@ -138,13 +139,10 @@ export function ChatWindow({
       workflowPhaseRef.current = "discover";
     } else if (
       workflowPhaseRef.current === "draft" &&
-      /\b(send it|approve|yes send|ship it|go ahead)\b/i.test(value) &&
-      !/\b(don't|do not|never)\s+(send|approve)\b/i.test(value) &&
-      messages.some((existing) =>
-        existing.parts.some(
-          (part) => part.type === "tool-draft_pitch" || part.type === "tool-draft_generic_email",
-        ),
-      )
+      hasExplicitDraftApproval([
+        ...messages,
+        { role: "user", parts: [{ type: "text", text: value }] },
+      ])
     ) {
       workflowPhaseRef.current = "send";
     }
@@ -165,8 +163,8 @@ export function ChatWindow({
 
   return (
     <div className="flex h-full min-h-0 w-full">
-      <div className="flex h-full min-w-0 flex-1 flex-col">
-        <div className="flex items-center justify-between gap-2 border-b bg-background/60 px-3 py-2">
+      <div className="flex h-full min-w-0 flex-1 flex-col bg-[radial-gradient(circle_at_top,_rgba(129,140,248,0.12),_transparent_30%),linear-gradient(180deg,#f8fafc_0%,#f5f7fb_100%)]">
+        <div className="flex items-center justify-between gap-2 border-b border-slate-200/80 bg-white/70 px-3 py-2.5 backdrop-blur-xl">
           <div className="flex items-center gap-1 min-w-0">
             {onOpenSidebar ? (
               <Button
@@ -180,7 +178,7 @@ export function ChatWindow({
                 <Menu className="h-4 w-4" />
               </Button>
             ) : null}
-            <div className="text-xs text-muted-foreground truncate">
+            <div className="truncate text-xs font-medium text-slate-500">
               {isLoading ? (
                 <span className="flex items-center gap-1.5">
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
@@ -195,6 +193,7 @@ export function ChatWindow({
             type="button"
             variant="ghost"
             size="icon-sm"
+            className="rounded-full border border-slate-200 bg-white/80 shadow-sm"
             onClick={() => setPanelOpen((v) => !v)}
             aria-label={panelOpen ? "Hide activity" : "Show activity"}
           >
@@ -260,14 +259,18 @@ export function ChatWindow({
           <ConversationScrollButton />
         </Conversation>
 
-        <div className="border-t bg-background p-4">
-          <PromptInput onSubmit={handleSubmit}>
+        <div className="border-t border-slate-200/80 bg-white/60 p-4 backdrop-blur-xl">
+          <PromptInput
+            onSubmit={handleSubmit}
+            className="overflow-hidden rounded-2xl border border-slate-200 bg-white/90 shadow-[0_12px_30px_rgba(15,23,42,0.08)]"
+          >
             <PromptInputTextarea
               ref={textareaRef}
+              className="border-0 bg-transparent px-3 py-3 text-sm text-slate-700 placeholder:text-slate-400 focus-visible:ring-0"
               placeholder="Scout companies matching your ICP, or choose companies and contacts to continue"
               disabled={isLoading}
             />
-            <PromptInputFooter className="justify-between">
+            <PromptInputFooter className="justify-between border-t border-slate-200/80 bg-slate-50/80 px-2 py-2">
               <FileUploadButton
                 onImported={(summary) => {
                   workflowPhaseRef.current = "discover";
@@ -277,6 +280,7 @@ export function ChatWindow({
               />
               <PromptInputSubmit
                 status={status}
+                className="rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-500/15 hover:from-violet-500 hover:to-indigo-500"
                 disabled={isLoading && status !== "streaming"}
                 onClick={status === "streaming" ? () => stop() : undefined}
               />
@@ -310,22 +314,27 @@ function EmptyState({ onPick }: { onPick: (text: string) => void }) {
     "Scout Africa and Latin America for qualifying product and marketing roles",
   ];
   return (
-    <div className="mx-auto flex max-w-xl flex-col items-center gap-4 py-12 text-center">
-      <img src={logo} alt="Startup Scout" width={72} height={72} className="rounded-lg" />
-      <h2 className="text-2xl font-semibold">Startup Scout</h2>
-      <p className="text-muted-foreground">
-        Find and rank companies against your ICP first. Choose companies to reveal contact options,
-        then select who you want to draft outreach for.
-      </p>
-      <div className="grid w-full gap-2 text-left text-sm text-muted-foreground sm:grid-cols-3">
-        <div className="flex items-center gap-2 rounded-md border bg-muted/30 p-3">
-          <Building2 className="h-4 w-4 shrink-0" /> Scout and rank companies
+    <div className="mx-auto flex max-w-2xl flex-col items-center gap-5 py-12 text-center">
+      <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 via-indigo-500 to-sky-400 shadow-xl shadow-violet-500/20">
+        <img src={logo} alt="Startup Scout" width={52} height={52} className="rounded-xl" />
+      </div>
+      <div className="space-y-2">
+        <h2 className="text-3xl font-semibold tracking-tight text-slate-900">Startup Scout</h2>
+        <p className="mx-auto max-w-xl text-sm leading-6 text-slate-600">
+          Find and rank companies against your ICP first. Choose companies to reveal contact
+          options, then select who you want to draft outreach for.
+        </p>
+      </div>
+      <div className="grid w-full gap-2 text-left text-sm text-slate-600 sm:grid-cols-3">
+        <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 p-3 shadow-sm">
+          <Building2 className="h-4 w-4 shrink-0 text-violet-600" /> Scout and rank companies
         </div>
-        <div className="flex items-center gap-2 rounded-md border bg-muted/30 p-3">
-          <UsersRound className="h-4 w-4 shrink-0" /> Select contacts
+        <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 p-3 shadow-sm">
+          <UsersRound className="h-4 w-4 shrink-0 text-indigo-600" /> Select contacts
         </div>
-        <div className="flex items-center gap-2 rounded-md border bg-muted/30 p-3">
-          <BriefcaseBusiness className="h-4 w-4 shrink-0" /> Review drafts before sending
+        <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 p-3 shadow-sm">
+          <BriefcaseBusiness className="h-4 w-4 shrink-0 text-sky-600" /> Review drafts before
+          sending
         </div>
       </div>
       <div className="mt-2 flex w-full flex-col gap-2">
@@ -334,7 +343,7 @@ function EmptyState({ onPick }: { onPick: (text: string) => void }) {
             key={s}
             type="button"
             onClick={() => onPick(s)}
-            className="rounded-md border bg-muted/30 px-3 py-2 text-left text-sm text-muted-foreground transition hover:bg-muted hover:text-foreground"
+            className="rounded-2xl border border-slate-200 bg-white/80 px-3 py-2.5 text-left text-sm text-slate-600 shadow-sm transition hover:border-violet-200 hover:bg-violet-50 hover:text-slate-900"
           >
             {s}
           </button>
