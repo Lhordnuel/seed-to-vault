@@ -35,6 +35,7 @@ npm run dev
 The development server prints its local URL when it starts. To check the production build and lint the project, run:
 
 ```sh
+npm test
 npm run build
 npm run lint
 ```
@@ -57,7 +58,7 @@ Email sending and status checks call the Resend API directly. Store `RESEND_API_
 | `VITE_SUPABASE_PROJECT_ID`                              | Project reference used by browser-side auth storage.                                               |
 | `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` | Optional browser-side Supabase settings; use only the public key here, never the service-role key. |
 | `APP_ACCESS_PASSWORD`                                   | Required to unlock the password-protected app.                                                     |
-| `MODEL_API_KEY`                                         | Cloudflare secret for Meta Model API chat and email-sourcing (`muse-spark-1.3`).                    |
+| `MODEL_API_KEY`                                         | Cloudflare secret for Meta Model API chat and email-sourcing (`muse-spark-1.3`).                   |
 | `APOLLO_API_KEY`                                        | Company discovery and contact lookup.                                                              |
 | `FIRECRAWL_API_KEY`                                     | Public web search and page scraping.                                                               |
 | `RESEND_API_KEY`                                        | Cloudflare secret used to send emails and read email status through Resend.                        |
