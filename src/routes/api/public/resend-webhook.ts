@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createHmac, timingSafeEqual } from "crypto";
 import { recordEvent, type ResendEventType } from "@/lib/email-events.server";
+import { getReceivedResendEmail } from "@/lib/resend.server";
+import { storeInboundReply } from "@/lib/automation.server";
 
 /**
  * Resend webhook endpoint (Svix-signed).
@@ -31,13 +33,40 @@ function verifySvix(
   const expected = createHmac("sha256", keyBytes).update(signed).digest("base64");
 
   // Header looks like: "v1,<sig> v1,<sig2>"
-  const sigs = signatureHeader.split(" ").map((s) => s.split(",")[1]).filter(Boolean);
+  const sigs = signatureHeader
+    .split(" ")
+    .map((s) => s.split(",")[1])
+    .filter(Boolean);
   for (const sig of sigs) {
     const a = Buffer.from(sig);
     const b = Buffer.from(expected);
     if (a.length === b.length && timingSafeEqual(a, b)) return true;
   }
   return false;
+}
+
+function emailAddress(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const match = value.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  return match?.[0]?.toLowerCase();
+}
+
+function plainText(value: unknown): string {
+  if (typeof value !== "string") return "";
+  return value
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
+    .replace(/<br\s*\/?>|<\/p>|<\/div>|<\/li>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 export const Route = createFileRoute("/api/public/resend-webhook")({
@@ -66,6 +95,7 @@ export const Route = createFileRoute("/api/public/resend-webhook")({
             created_at?: string;
             data?: {
               email_id?: string;
+              from?: string;
               to?: string[] | string;
               subject?: string;
               bounce?: { message?: string };
@@ -73,6 +103,41 @@ export const Route = createFileRoute("/api/public/resend-webhook")({
           };
           const type = body.type ?? "unknown";
           const data = body.data ?? {};
+          if (type === "email.received") {
+            const receivedId = data.email_id;
+            if (!receivedId) return new Response("Missing received email ID", { status: 400 });
+            const received = await getReceivedResendEmail(receivedId);
+            const sender = emailAddress(received.from);
+            const receivedFor = Array.isArray(received.received_for)
+              ? received.received_for.find((value): value is string => typeof value === "string")
+              : undefined;
+            const receivedTo = Array.isArray(received.to)
+              ? received.to.find((value): value is string => typeof value === "string")
+              : typeof received.to === "string"
+                ? received.to
+                : undefined;
+            const recipient = emailAddress(receivedFor) ?? emailAddress(receivedTo);
+            if (!sender || !recipient) {
+              return new Response("Received email is missing sender or recipient", { status: 400 });
+            }
+            const expectedReplyAddress = (process.env.RESEND_REPLY_ADDRESS ?? "nuel@vaultio.tech")
+              .trim()
+              .toLowerCase();
+            if (recipient !== expectedReplyAddress) {
+              return Response.json({ ok: true, matched: false });
+            }
+            const text =
+              typeof received.text === "string" ? received.text : plainText(received.html);
+            const result = await storeInboundReply({
+              resendId: receivedId,
+              senderEmail: sender,
+              recipientEmail: recipient,
+              subject: typeof received.subject === "string" ? received.subject : "",
+              body: text,
+              receivedAt: typeof received.created_at === "string" ? received.created_at : undefined,
+            });
+            return Response.json({ ok: true, matched: result.matched });
+          }
           const to = Array.isArray(data.to) ? data.to[0] : data.to;
           if (to) {
             await recordEvent({
@@ -88,17 +153,17 @@ export const Route = createFileRoute("/api/public/resend-webhook")({
             headers: { "Content-Type": "application/json" },
           });
         } catch (e) {
-          return new Response(
-            JSON.stringify({ ok: false, error: (e as Error).message }),
-            { status: 400, headers: { "Content-Type": "application/json" } },
-          );
+          console.error("[resend-webhook] event processing failed", e);
+          return new Response(JSON.stringify({ ok: false, error: (e as Error).message }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          });
         }
       },
       GET: async () =>
-        new Response(
-          "Resend webhook endpoint. POST events here from Resend dashboard.",
-          { status: 200 },
-        ),
+        new Response("Resend webhook endpoint. POST events here from Resend dashboard.", {
+          status: 200,
+        }),
     },
   },
 });

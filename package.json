@@ -10,7 +10,7 @@
     "build": "cross-env NODE_OPTIONS=--max-old-space-size=4096 vite build",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
-    "test": "node --experimental-strip-types --test src/lib/workflow-phase.test.mjs",
+    "test": "node --experimental-strip-types --test src/lib/workflow-phase.test.mjs src/lib/automation-policy.test.mjs",
     "lint": "eslint .",
     "format": "prettier --write ."
   },

@@ -11,6 +11,7 @@ import {
 import { z } from "zod";
 import { getMetaAIModel } from "@/lib/meta-ai.server";
 import { sendResendEmail } from "@/lib/resend.server";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 import { firecrawlMap, firecrawlScrape, firecrawlSearch } from "@/lib/firecrawl.server";
 import {
@@ -34,6 +35,7 @@ import {
 import { hasValidAccessSession } from "@/lib/access-session.server";
 import { rankScoutingCompanies } from "@/lib/scouting-rank";
 import { hasExplicitDraftApproval } from "@/lib/workflow-phase";
+import { createSingleSendApprovalGate } from "@/lib/automation-policy";
 
 // CC configuration — toggle CC'ing nuel@vaultio.tech per environment or per call.
 // Env var CC_NUEL_ENABLED ("true"/"false", default "true") controls the default.
@@ -301,11 +303,11 @@ How to work — user-controlled stages:
 5. RESEARCH PASS (MANDATORY before draft_pitch): after contact selection, for each recipient, run \`scrape_company\` on the company site AND on the recipient's LinkedIn/about page. Record 2–3 specific facts and the industry pain you'll lead with.
 6. \`draft_pitch\` using the PITCH FRAMEWORK + the correct ROLE-FAMILY VARIANT. Draft only for contacts Nuel selected. Show drafts and wait for explicit approval before any send.
 
-8. SINGLE → \`send_pitch\` (audience="hiring"). MULTIPLE → \`bulk_send_pitch\` ONCE (rate-limited, dedupes). Each body MUST be unique and personalized. These tools are available only after explicit approval in a separate message.
+8. Use \`send_pitch\` or \`send_generic_email\` for exactly ONE recipient per approval. A separate approval is required for every recipient. Bulk sending is not available.
 
 9. NEVER send without a recipient email. NEVER send to generic / role-based inboxes (info@, hello@, contact@, sales@, support@, admin@, jobs@, careers@, hr@, talent@, recruiting@, team@, etc.). Use only a named person's work email; otherwise fall back to LinkedIn.
 
-10. NEVER loop \`send_pitch\` for batches. NEVER reuse the same body across recipients.
+10. NEVER loop send calls or use a single approval to send to multiple recipients. NEVER reuse the same body across recipients.
 
 11. ANTI-REUSE ENFORCEMENT (server-side): the send tools reject any email whose subject, opening sentence, or 5-word body shingles overlap too much with a previously sent email this session. Keep the CORE Vaultio positioning consistent but vary per recipient: (a) different subject hook, (b) different opening sentence built from a different researched fact, (c) different body structure. If a send is rejected for reuse, rewrite those three elements and retry.
 
@@ -538,6 +540,7 @@ async function sendPitchEmail(opts: {
       text: body,
       html,
     });
+    await recordAutomationSentEmail({ to, subject, body, companyName, resendId });
     sentEmailsThisSession.add(to.toLowerCase().trim());
     recordSent(subject, body);
     return {
@@ -551,6 +554,50 @@ async function sendPitchEmail(opts: {
     };
   } catch (e) {
     return { sent: false, to, subject, error: (e as Error).message };
+  }
+}
+
+async function recordAutomationSentEmail(opts: {
+  to: string;
+  subject: string;
+  body: string;
+  companyName?: string;
+  resendId: string;
+}) {
+  const { to, subject, body, companyName, resendId } = opts;
+  const normalizedTo = to.toLowerCase().trim();
+  try {
+    const { data: contact, error: contactError } = await supabaseAdmin
+      .from("sourced_contacts")
+      .select("id,full_name")
+      .eq("email", normalizedTo)
+      .limit(1)
+      .maybeSingle();
+    if (contactError) {
+      console.error(
+        "[chat] email sent but contact lookup for reply monitoring failed",
+        contactError.message,
+      );
+    }
+    const { error: recordError } = await supabaseAdmin.from("scout_automation_sent_emails").upsert(
+      {
+        outbox_id: null,
+        contact_id: contact?.id ?? null,
+        recipient_email: normalizedTo,
+        recipient_name: contact?.full_name ?? "there",
+        company_name: companyName ?? "Company",
+        subject,
+        body,
+        resend_id: resendId,
+        source_type: "initial",
+      },
+      { onConflict: "resend_id", ignoreDuplicates: true },
+    );
+    if (recordError) {
+      console.error("[chat] email sent but reply-monitoring record failed", recordError.message);
+    }
+  } catch (error) {
+    console.error("[chat] email sent but reply-monitoring persistence threw", error);
   }
 }
 
@@ -576,6 +623,7 @@ export const Route = createFileRoute("/api/chat")({
         const requestedPhase = phaseResult.data;
         const sendBlocked = requestedPhase === "send" && !hasExplicitDraftApproval(body.messages);
         const workflowPhase = sendBlocked ? "draft" : requestedPhase;
+        const claimApprovedSend = createSingleSendApprovalGate(workflowPhase === "send");
 
         const model = getMetaAIModel();
         if (!model) {
@@ -1549,6 +1597,15 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
                 ),
             }),
             execute: async ({ to, subject, body, companyName, audience, ccNuel }) => {
+              if (!claimApprovedSend()) {
+                return {
+                  sent: false,
+                  to,
+                  subject,
+                  error:
+                    "One recipient per explicit approval. Review and approve each email separately.",
+                };
+              }
               return sendPitchEmail({ to, subject, body, companyName, audience, ccNuel });
             },
           }),
@@ -1697,6 +1754,15 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
                   error: "Approval required. Show the draft and wait for Nuel to say 'send it'.",
                 };
               }
+              if (!claimApprovedSend()) {
+                return {
+                  sent: false,
+                  to,
+                  subject,
+                  error:
+                    "One recipient per explicit approval. Review and approve each email separately.",
+                };
+              }
               try {
                 if (await isContactOptedOut(to)) {
                   return {
@@ -1734,6 +1800,7 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
                   text: body,
                   html,
                 });
+                await recordAutomationSentEmail({ to, subject, body, resendId });
                 return { sent: true, to, cc: ccList, subject, resendId };
               } catch (e) {
                 return { sent: false, to, subject, error: (e as Error).message };
@@ -1784,7 +1851,7 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
             "draft_pitch",
             "draft_generic_email",
           ]),
-          send: new Set(["send_pitch", "bulk_send_pitch", "send_generic_email"]),
+          send: new Set(["send_pitch", "send_generic_email"]),
         };
         const availableTools = Object.fromEntries(
           Object.entries(tools).filter(([name]) => toolNamesByPhase[workflowPhase].has(name)),
@@ -1796,7 +1863,7 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
             "Current stage: find contacts only for the companies explicitly selected in the latest user message. Present options and stop. Drafting and sending tools are unavailable.",
           draft:
             "Current stage: research and draft only for the contacts explicitly selected in the latest user message. Sending tools are unavailable.",
-          send: "Current stage: the user explicitly approved a previously reviewed draft. Send only the approved draft(s); do not create new drafts or contact other people.",
+          send: "Current stage: the user explicitly approved a previously reviewed draft. Send only ONE recipient's approved draft in this phase. A separate explicit approval is required for every send; do not batch or loop sends, create new drafts, or contact other people.",
         };
 
         const result = streamText({

@@ -3,13 +3,14 @@
  *
  * Configure in Resend dashboard → Webhooks:
  *   URL: https://<your-domain>/api/public/resend-webhook
- *   Events: email.sent, email.delivered, email.opened, email.clicked,
- *           email.bounced, email.complained, email.delivery_delayed
+ *   Events: email.received, email.sent, email.delivered, email.opened,
+ *           email.clicked, email.bounced, email.complained, email.delivery_delayed
  */
 
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 export type ResendEventType =
+  | "email.received"
   | "email.sent"
   | "email.delivered"
   | "email.delivery_delayed"
