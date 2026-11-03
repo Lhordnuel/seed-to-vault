@@ -1,6 +1,6 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Plus, Trash2, Search, UsersRound } from "lucide-react";
+import { Plus, Trash2, Search, UsersRound, Workflow } from "lucide-react";
 import { deleteThread, loadThreads, newThreadId, type Thread } from "@/lib/threads";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo.png";
@@ -74,6 +74,17 @@ export function ThreadSidebar() {
         >
           <UsersRound className="h-4 w-4" />
           Contact database
+        </Link>
+        <Link
+          to="/automation"
+          className={`mt-1 flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm transition-all ${
+            location === "/automation"
+              ? "bg-white/10 font-medium text-white shadow-inner shadow-slate-900/30"
+              : "text-slate-300 hover:bg-white/5 hover:text-white"
+          }`}
+        >
+          <Workflow className="h-4 w-4" />
+          Automation
         </Link>
       </div>
       <div className="flex-1 overflow-y-auto px-2 pb-3">

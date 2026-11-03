@@ -33,10 +33,16 @@ async function resendRequest(path: string, init?: RequestInit) {
   return body as Record<string, unknown>;
 }
 
-export async function sendResendEmail(payload: ResendPayload): Promise<string> {
+export async function sendResendEmail(
+  payload: ResendPayload,
+  idempotencyKey?: string,
+): Promise<string> {
   const result = await resendRequest("/emails", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+    },
     body: JSON.stringify(payload),
   });
   if (typeof result.id !== "string") {
@@ -47,4 +53,8 @@ export async function sendResendEmail(payload: ResendPayload): Promise<string> {
 
 export function getResendEmail(id: string) {
   return resendRequest(`/emails/${encodeURIComponent(id)}`);
+}
+
+export function getReceivedResendEmail(id: string) {
+  return resendRequest(`/emails/receiving/${encodeURIComponent(id)}`);
 }

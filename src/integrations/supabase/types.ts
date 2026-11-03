@@ -6,6 +6,13 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
+type TableDefinition<Row, Insert, Update = Partial<Insert>> = {
+  Row: Row
+  Insert: Insert
+  Update: Update
+  Relationships: []
+}
+
 export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
@@ -182,12 +189,165 @@ export type Database = {
         }
         Relationships: []
       }
+      scout_automation_settings: TableDefinition<
+        {
+          id: number
+          enabled: boolean
+          search_query: string
+          daily_cycle_date: string | null
+          daily_cycle_count: number
+          cycle_lock_token: string | null
+          cycle_lock_until: string | null
+          last_cycle_at: string | null
+          last_error: string | null
+          updated_at: string
+        },
+        {
+          id?: number
+          enabled?: boolean
+          search_query?: string
+          daily_cycle_date?: string | null
+          daily_cycle_count?: number
+          cycle_lock_token?: string | null
+          cycle_lock_until?: string | null
+          last_cycle_at?: string | null
+          last_error?: string | null
+          updated_at?: string
+        }
+      >
+      scout_automation_runs: TableDefinition<
+        {
+          id: string
+          cycle_token: string
+          status: string
+          companies_reviewed: number
+          drafts_created: number
+          summary: string | null
+          error: string | null
+          started_at: string
+          completed_at: string | null
+        },
+        {
+          id?: string
+          cycle_token: string
+          status: string
+          companies_reviewed?: number
+          drafts_created?: number
+          summary?: string | null
+          error?: string | null
+          started_at?: string
+          completed_at?: string | null
+        }
+      >
+      scout_automation_outbox: TableDefinition<
+        {
+          id: string
+          source_key: string
+          source_type: string
+          source_inbound_id: string | null
+          parent_sent_id: string | null
+          contact_id: string | null
+          company_name: string
+          recipient_name: string
+          recipient_email: string
+          subject: string
+          body: string
+          source_urls: string[]
+          status: string
+          last_error: string | null
+          created_at: string
+          updated_at: string
+          sent_at: string | null
+        },
+        {
+          id?: string
+          source_key: string
+          source_type: string
+          source_inbound_id?: string | null
+          parent_sent_id?: string | null
+          contact_id?: string | null
+          company_name: string
+          recipient_name: string
+          recipient_email: string
+          subject: string
+          body: string
+          source_urls?: string[]
+          status?: string
+          last_error?: string | null
+          created_at?: string
+          updated_at?: string
+          sent_at?: string | null
+        }
+      >
+      scout_automation_sent_emails: TableDefinition<
+        {
+          id: string
+          outbox_id: string | null
+          contact_id: string | null
+          recipient_email: string
+          recipient_name: string
+          company_name: string
+          subject: string
+          body: string
+          resend_id: string | null
+          source_type: string
+          parent_sent_id: string | null
+          sent_at: string
+        },
+        {
+          id?: string
+          outbox_id?: string | null
+          contact_id?: string | null
+          recipient_email: string
+          recipient_name: string
+          company_name: string
+          subject: string
+          body: string
+          resend_id?: string | null
+          source_type: string
+          parent_sent_id?: string | null
+          sent_at?: string
+        }
+      >
+      scout_automation_inbound_emails: TableDefinition<
+        {
+          id: string
+          resend_id: string
+          sender_email: string
+          recipient_email: string
+          subject: string
+          body: string
+          received_at: string
+          status: string
+          sent_email_id: string | null
+          outbox_id: string | null
+        },
+        {
+          id?: string
+          resend_id: string
+          sender_email: string
+          recipient_email: string
+          subject?: string
+          body?: string
+          received_at?: string
+          status?: string
+          sent_email_id?: string | null
+          outbox_id?: string | null
+        }
+      >
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      claim_scout_automation_cycle: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      finish_scout_automation_cycle: {
+        Args: { p_lock_token: string; p_error?: string | null }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
@@ -206,12 +366,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -233,13 +393,12 @@ export type Tables<
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -258,13 +417,12 @@ export type TablesInsert<
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -283,13 +441,12 @@ export type TablesUpdate<
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    keyof DefaultSchema["Enums"] | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -302,11 +459,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -317,6 +474,6 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
-  },
+    Enums: {}
+  }
 } as const
