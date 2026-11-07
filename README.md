@@ -48,6 +48,7 @@ Set server-side credentials in your local environment or deployment environment.
 Copy `.env.example` to `.env` and fill in the values from the Supabase project you own. The server role key must remain server-side; never add it to a `VITE_` variable or browser code.
 Chat and email-sourcing use Meta Model API (`muse-spark-1.3`). Set `MODEL_API_KEY` as an encrypted Cloudflare Worker secret with `npx wrangler secret put MODEL_API_KEY`; do not add it under `vars` in `wrangler.jsonc`.
 Email sending and status checks call the Resend API directly. Store `RESEND_API_KEY` as an encrypted Cloudflare Worker secret with `npx wrangler secret put RESEND_API_KEY`; do not add it under `vars` in `wrangler.jsonc`.
+Email verification is optional. Configure `REOON_API_KEY`, `ZEROBOUNCE_API_KEY`, or reuse `HUNTER_API_KEY` as encrypted Worker secrets with `npx wrangler secret put REOON_API_KEY` and `npx wrangler secret put ZEROBOUNCE_API_KEY`; do not add provider keys under `vars`.
 
 | Variable                                                | Purpose                                                                                            |
 | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
@@ -62,12 +63,14 @@ Email sending and status checks call the Resend API directly. Store `RESEND_API_
 | `APOLLO_API_KEY`                                        | Company discovery and contact lookup.                                                              |
 | `FIRECRAWL_API_KEY`                                     | Public web search and page scraping.                                                               |
 | `RESEND_API_KEY`                                        | Cloudflare secret used to send emails and read email status through Resend.                        |
+| `REOON_API_KEY`                                         | Optional server-side email verification key.                                                       |
+| `ZEROBOUNCE_API_KEY`                                    | Optional server-side email verification key; sent using a POST body.                               |
 | `CC_NUEL_ENABLED`                                       | Optional; controls the default CC to `nuel@vaultio.tech` when sending. Defaults to `true`.         |
 | `RESEND_WEBHOOK_SECRET`                                 | Required to verify Resend delivery webhook signatures.                                             |
 
-Additional enrichment integrations are available through `FULLENRICH_API_KEY`, `LUSHA_API_KEY`, `HUNTER_API_KEY`, `PROSPEO_API_KEY`, `PEOPLE_DATA_LABS_API_KEY`, and `TOMBA_API_KEY` plus `TOMBA_SECRET_KEY`. These are optional; configure only the providers you intend to use.
+Additional enrichment integrations are available through `FULLENRICH_API_KEY`, `LUSHA_API_KEY`, `HUNTER_API_KEY`, `REOON_API_KEY`, `ZEROBOUNCE_API_KEY`, `PROSPEO_API_KEY`, `PEOPLE_DATA_LABS_API_KEY`, and `TOMBA_API_KEY` plus `TOMBA_SECRET_KEY`. These are optional; configure only the providers you intend to use. The pattern-based work-email lookup tries configured validators in ZeroBounce, Reoon, then Hunter order; guessed or inconclusive results are not exposed as sendable contact emails.
 
-Apply the SQL files in `supabase/migrations/` to your Supabase project in filename order (or run the new scouting migration in the Supabase SQL Editor). The scouting schema keeps companies, contacts, and source observations in separate tables; it also records opt-outs and links email delivery events to contacts. Contacts are not marked eligible for commercialization automatically; a lawful basis and a separate review are required. Only the trusted server role can access these tables. Use provider data only in accordance with the provider's terms and applicable privacy requirements.
+Apply the SQL files in `supabase/migrations/` to your Supabase project in filename order (or run the scouting migrations in the Supabase SQL Editor). The scouting schema keeps companies, contacts, and source observations in separate tables; it caches learned company email patterns, records opt-outs, and links email delivery events to contacts. Contacts are not marked eligible for commercialization automatically; a lawful basis and a separate review are required. Only the trusted server role can access these tables. Use provider data only in accordance with the provider's terms and applicable privacy requirements.
 
 The app access password now creates a signed, `HttpOnly` session cookie. Configure `APP_ACCESS_PASSWORD` before opening the app; protected chat, contact, and delivery endpoints reject requests without a valid session.
 

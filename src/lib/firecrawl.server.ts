@@ -19,7 +19,10 @@ export async function firecrawlSearch(query: string, limit = 10) {
   return res.json();
 }
 
-export async function firecrawlScrape(url: string) {
+export async function firecrawlScrape(
+  url: string,
+  formats: Array<"markdown" | "html"> = ["markdown"],
+) {
   const res = await fetch(`${FIRECRAWL_BASE}/scrape`, {
     method: "POST",
     headers: {
@@ -28,7 +31,7 @@ export async function firecrawlScrape(url: string) {
     },
     body: JSON.stringify({
       url,
-      formats: ["markdown"],
+      formats,
       onlyMainContent: true,
     }),
   });

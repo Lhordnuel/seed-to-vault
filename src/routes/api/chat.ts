@@ -23,6 +23,8 @@ import {
 import { lushaCompanyEmployees, lushaPersonEnrich } from "@/lib/lusha.server";
 import { fullenrichBulkEnrich, fullenrichPersonEnrich } from "@/lib/fullenrich.server";
 import { hunterDomainSearch, hunterEmailFinder } from "@/lib/hunter.server";
+import { findVerifiedWorkEmail } from "@/lib/email-sourcing.server";
+import { extractPublishedEmails, extractSitePeople } from "@/lib/email-pattern";
 import { prospeoDomainSearch, prospeoEmailFinder } from "@/lib/prospeo.server";
 import { pdlPersonEnrich, pdlPersonSearch } from "@/lib/pdl.server";
 import { tombaDomainSearch, tombaEmailFinder } from "@/lib/tomba.server";
@@ -285,19 +287,21 @@ Examples: "[Name], saw your [specific thing]" · "[Company]'s [Role] hire — qu
 
 How to work — user-controlled stages:
 1. DISCOVER: search Apollo and public job sources, verify company stage, size, remote/distributed hiring, geography, and live eligible roles. Exclude poor fits. Call \`present_ranked_companies\` with verified evidence and stop. Do not search for contacts, enrich people, save contacts, or draft/send outreach in this stage. Ask Nuel to choose companies using the selection cards.
-2. CONTACTS: only after Nuel selects companies using the selection cards, find relevant named decision-makers at those selected companies. Prioritize the hiring manager for a selected opening (engineering leader for engineering roles, product leader for product roles, marketing leader for marketing roles), then CTO/technical co-founder or the relevant function's executive. Call \`present_contact_options\` with each contact's actual source provider and source URL when known. Do not present or save inferred email guesses. This automatically saves the presented sourced contacts to Supabase before showing them; report any save failures shown in the tool result, then stop and wait for contact selection. Do not draft or send yet.
+2. CONTACTS: only after Nuel selects companies using the selection cards, find relevant named decision-makers at those selected companies. Prioritize the hiring manager for a selected opening (engineering leader for engineering roles, product leader for product roles, marketing leader for marketing roles), then CTO/technical co-founder or the relevant function's executive. Call \`present_contact_options\` with each contact's actual source provider and source URL when known. Do not present or save inferred email guesses. For \`find_verified_work_email\` results, include an email only when status is \`valid\`, and pass its status, pattern, pattern source, and verification provider as the corresponding contact fields. This automatically saves the presented sourced contacts to Supabase before showing them; report any save failures shown in the tool result, then stop and wait for contact selection. Do not draft or send yet.
 3. DRAFT: only after Nuel selects named contacts, research each selected person and company, then draft individualized messages. Show drafts for review. Never send during discovery, contact selection, or draft creation. Send only after a separate, explicit send instruction.
 4. During the CONTACTS stage, use this lookup order and stop once there are enough sourced options to show:
-   a. \`fullenrich_enrich_person\` (or \`fullenrich_bulk_enrich\` for multiple) — PRIMARY enrichment when you have a name + (domain OR LinkedIn URL). Best email accuracy; returns VALID/CATCHALL qualification. Always try this FIRST once you have a name.
-   b. \`apollo_find_contacts\` — use when you have a domain but NO names yet. Discovers people by title; runs Bulk People Enrichment with reveal_personal_emails=true. NOTE: Apollo masks emails as 'email_not_unlocked@domain.com' when reveal credits are exhausted — the tool filters these out. If Apollo discovers names but no usable email, feed those names into \`fullenrich_bulk_enrich\`.
-   c. \`apollo_search_startups\` for discovery only (not contact emails).
-   d. \`lusha_find_contacts\` / \`lusha_enrich_person\` — fallback when FullEnrich + Apollo both fail.
-   e. \`hunter_domain_search\` if Lusha fails. Use \`hunter_email_finder\` when you have a selected person's name + domain.
-   f. \`prospeo_email_finder\` / \`prospeo_domain_search\` if Hunter fails.
-   g. \`pdl_person_enrich\` / \`pdl_person_search\` (People Data Labs) if Prospeo fails — best when you have a name or LinkedIn URL.
-   h. \`tomba_domain_search\` / \`tomba_email_finder\` if PDL fails.
-   i. \`ai_source_emails\` (Meta Model API) if every provider above failed — scrapes site + reasons about likely patterns.
-   j. \`find_linkedin_profiles\` (Firecrawl LinkedIn search) ONLY as the final fallback when no email exists anywhere. Surface the LinkedIn URLs so Nuel can DM manually.
+   a. \`find_executive_contacts\` — first inspect the selected company's own team/about/contact pages for named decision-makers and published work emails. It returns names even when no email is published.
+   b. \`fullenrich_enrich_person\` (or \`fullenrich_bulk_enrich\` for multiple) — PRIMARY enrichment when you have a name + (domain OR LinkedIn URL). Best email accuracy; returns VALID/CATCHALL qualification. Always try this once you have a name.
+   c. \`apollo_find_contacts\` — use when you have a domain but NO names yet. Discovers people by title; runs Bulk People Enrichment with reveal_personal_emails=true. NOTE: Apollo masks emails as 'email_not_unlocked@domain.com' when reveal credits are exhausted — the tool filters these out. If Apollo discovers names but no usable email, feed those names into \`fullenrich_bulk_enrich\`.
+   d. \`apollo_search_startups\` for discovery only (not contact emails).
+   e. \`lusha_find_contacts\` / \`lusha_enrich_person\` — fallback when FullEnrich + Apollo both fail.
+   f. \`hunter_domain_search\` if Lusha fails. Use \`hunter_email_finder\` when you have a selected person's name + domain.
+   g. \`prospeo_email_finder\` / \`prospeo_domain_search\` if Hunter fails.
+   h. \`pdl_person_enrich\` / \`pdl_person_search\` (People Data Labs) if Prospeo fails — best when you have a name or LinkedIn URL.
+   i. \`tomba_domain_search\` / \`tomba_email_finder\` if PDL fails.
+   j. \`find_verified_work_email\` if a selected person's name + company domain are known but existing sources did not reveal a usable email. It derives one candidate from a published site pattern or Hunter's domain pattern and verifies it. Only pass its \`email\` field onward when \`emailStatus\` is \`valid\`; never use \`candidateEmail\` from guess, catchall, invalid, or unknown results.
+   k. \`ai_source_emails\` (Meta Model API) if every provider above failed — scrapes the site and may infer patterns, but never treat inferred addresses as sendable.
+   l. \`find_linkedin_profiles\` (Firecrawl LinkedIn search) ONLY as the final fallback when no verified email exists anywhere. Surface the LinkedIn URLs so Nuel can DM manually.
 5. RESEARCH PASS (MANDATORY before draft_pitch): after contact selection, for each recipient, run \`scrape_company\` on the company site AND on the recipient's LinkedIn/about page. Record 2–3 specific facts and the industry pain you'll lead with.
 6. \`draft_pitch\` using the PITCH FRAMEWORK + the correct ROLE-FAMILY VARIANT. Draft only for contacts Nuel selected. Show drafts and wait for explicit approval before any send.
 
@@ -966,7 +970,7 @@ export const Route = createFileRoute("/api/chat")({
           }),
           find_executive_contacts: tool({
             description:
-              "Find named hiring decision-makers at a company selected by the user. Maps the company site for relevant leadership pages and returns sourced contact options. Do not call before the user selects that company.",
+              "Find named hiring decision-makers at a company selected by the user. Maps the company's own team/about/contact pages, extracting names, titles, and any published work emails; names without an email can be passed to find_verified_work_email. Never infer an address here. Do not call before the user selects that company.",
             inputSchema: z.object({
               domain: z
                 .string()
@@ -976,10 +980,19 @@ export const Route = createFileRoute("/api/chat")({
               companyName: z.string().optional(),
             }),
             execute: async ({ domain, companyName }) => {
-              const homepage = /^https?:\/\//i.test(domain)
-                ? domain
-                : `https://${domain.replace(/^\/+/, "")}`;
-              const rootDomain = new URL(homepage).hostname.replace(/^www\./, "");
+              const inputUrl = new URL(/^https?:\/\//i.test(domain) ? domain : `https://${domain}`);
+              const rootDomain = inputUrl.hostname.toLowerCase().replace(/^www\./, "");
+              if (
+                !rootDomain.includes(".") ||
+                rootDomain.endsWith(".local") ||
+                rootDomain.endsWith(".internal") ||
+                rootDomain === "localhost" ||
+                rootDomain.includes(":") ||
+                /^\d{1,3}(?:\.\d{1,3}){3}$/.test(rootDomain)
+              ) {
+                throw new Error("A public company domain is required.");
+              }
+              const homepage = `https://${rootDomain}`;
 
               const pickedUrls = new Set<string>([homepage]);
               try {
@@ -992,7 +1005,20 @@ export const Route = createFileRoute("/api/chat")({
                   /(team|about|contact|leadership|people|founders?|company|who-we-are)/i;
                 for (const l of links) {
                   if (typeof l === "string" && keywords.test(l)) {
-                    pickedUrls.add(l);
+                    try {
+                      const page = new URL(l);
+                      const pageHost = page.hostname.toLowerCase().replace(/^www\./, "");
+                      if (
+                        page.protocol === "https:" &&
+                        (pageHost === rootDomain || pageHost.endsWith(`.${rootDomain}`)) &&
+                        !page.username &&
+                        !page.password
+                      ) {
+                        pickedUrls.add(page.toString());
+                      }
+                    } catch {
+                      // Ignore invalid links from the site map.
+                    }
                     if (pickedUrls.size >= 6) break;
                   }
                 }
@@ -1002,10 +1028,9 @@ export const Route = createFileRoute("/api/chat")({
 
               const roleRegex =
                 /\b(ceo|chief executive officer|founder|co-?founder|cto|chief technology officer|coo|chief operating officer|head of engineering|vp engineering|engineering manager|head of product|vp product|chief product officer|head of marketing|vp marketing|chief marketing officer)\b/i;
-              const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
 
               type Contact = {
-                email: string;
+                email?: string;
                 name?: string;
                 role?: string;
                 source: string;
@@ -1034,7 +1059,8 @@ export const Route = createFileRoute("/api/chat")({
                   const data = await firecrawlScrape(url);
                   const md: string = data?.data?.markdown ?? data?.markdown ?? "";
                   if (!md) continue;
-                  const emails = md.match(emailRegex) ?? [];
+                  const emails = extractPublishedEmails(md, rootDomain);
+                  const people = extractSitePeople(md);
                   for (const rawEmail of emails) {
                     const email = rawEmail.toLowerCase();
                     if (/\.(png|jpg|jpeg|svg|gif|webp)$/i.test(email)) continue;
@@ -1044,17 +1070,33 @@ export const Route = createFileRoute("/api/chat")({
                     const idx = md.toLowerCase().indexOf(email);
                     const window = md.slice(Math.max(0, idx - 200), idx + 200);
                     const roleMatch = window.match(roleRegex);
-                    const role = roleMatch?.[0];
+                    const person =
+                      people.find((candidate) =>
+                        window.toLowerCase().includes(candidate.name.toLowerCase()),
+                      ) ?? (people.length === 1 && emails.length === 1 ? people[0] : undefined);
+                    const role = person?.title ?? roleMatch?.[0];
                     const rank = rankFor(role) + (emailDomain.endsWith(rootDomain) ? 0 : 0.5);
                     const existing = contacts.get(email);
                     if (!existing || rank < existing.rank) {
                       contacts.set(email, {
                         email,
+                        name: person?.name,
                         role,
                         source: url,
                         rank,
                       });
                     }
+                  }
+                  for (const person of people) {
+                    if ([...contacts.values()].some((contact) => contact.name === person.name)) {
+                      continue;
+                    }
+                    contacts.set(`person:${person.name.toLowerCase()}`, {
+                      name: person.name,
+                      role: person.title,
+                      source: url,
+                      rank: rankFor(person.title),
+                    });
                   }
                 } catch {
                   // skip page
@@ -1074,7 +1116,7 @@ export const Route = createFileRoute("/api/chat")({
                 primaryContact: ranked.find((c) => c.role) ?? ranked[0],
                 note:
                   ranked.length === 0
-                    ? "No executive emails found on public pages. Call find_linkedin_profiles next to source a LinkedIn URL for the CEO/Founder/CTO instead."
+                    ? "No named decision-makers or work emails found on public pages. Continue with provider-based contact discovery."
                     : undefined,
               };
             },
@@ -1165,12 +1207,27 @@ export const Route = createFileRoute("/api/chat")({
                         .email()
                         .optional()
                         .describe("Only a sourced email address; never an inferred guess"),
+                      emailStatus: z.enum(["unknown", "valid", "catchall", "invalid"]).optional(),
+                      emailPattern: z.string().optional(),
+                      emailPatternSource: z
+                        .enum(["published_address", "hunter_domain_search", "default"])
+                        .optional(),
+                      verificationProvider: z.enum(["hunter", "reoon", "zerobounce"]).optional(),
                       linkedin: z.string().url().optional(),
                       source: z.string().url().optional(),
                     })
                     .refine((contact) => contact.email || contact.linkedin, {
                       message: "A contact needs a work email or LinkedIn profile.",
-                    }),
+                    })
+                    .refine(
+                      (contact) =>
+                        !contact.verificationProvider ||
+                        (contact.emailStatus === "valid" && !!contact.email),
+                      {
+                        message:
+                          "A pattern-derived email can only be saved when its verifier status is valid.",
+                      },
+                    ),
                 )
                 .min(1)
                 .max(30),
@@ -1193,6 +1250,10 @@ export const Route = createFileRoute("/api/chat")({
                     provider: contact.provider,
                     title: contact.title,
                     email: contact.email,
+                    emailStatus: contact.emailStatus,
+                    emailPattern: contact.emailPattern,
+                    emailPatternSource: contact.emailPatternSource,
+                    verificationProvider: contact.verificationProvider,
                     linkedinUrl: contact.linkedin,
                     sourceUrl: contact.source,
                   })),
@@ -1264,6 +1325,28 @@ export const Route = createFileRoute("/api/chat")({
                 return await hunterEmailFinder(input);
               } catch (e) {
                 return { ...input, error: (e as Error).message };
+              }
+            },
+          }),
+          find_verified_work_email: tool({
+            description:
+              "Find and verify one work-email candidate for a selected, already identified person. Checks published company-site addresses for a matching pattern, then a cached or Hunter domain pattern, then a clearly marked first.last fallback. Sends the single candidate to configured ZeroBounce, Reoon, or Hunter verification APIs. Only a 'valid' result includes an email field suitable for contact options; candidateEmail is diagnostic only and must never be shown as sendable or used for outreach. May use paid provider credits.",
+            inputSchema: z.object({
+              domain: z.string().describe("Selected company's public domain"),
+              firstName: z.string().min(1),
+              lastName: z.string().min(1),
+              companyName: z.string().optional(),
+            }),
+            execute: async (input) => {
+              try {
+                return await findVerifiedWorkEmail(input);
+              } catch (e) {
+                return {
+                  ...input,
+                  sendable: false,
+                  emailStatus: "unknown",
+                  error: (e as Error).message,
+                };
               }
             },
           }),
@@ -1760,6 +1843,7 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
             "find_linkedin_profiles",
             "hunter_domain_search",
             "hunter_email_finder",
+            "find_verified_work_email",
             "prospeo_email_finder",
             "prospeo_domain_search",
             "pdl_person_enrich",
@@ -1776,6 +1860,7 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
             "scrape_company",
             "find_linkedin_profiles",
             "hunter_email_finder",
+            "find_verified_work_email",
             "prospeo_email_finder",
             "pdl_person_enrich",
             "pdl_person_search",

@@ -673,6 +673,10 @@ type ContactCardRecord = {
   role?: string;
   headline?: string;
   email?: string;
+  emailStatus?: string;
+  emailPattern?: string;
+  emailPatternSource?: string;
+  verificationProvider?: string;
   linkedin?: string;
   linkedin_url?: string;
   url?: string;
@@ -801,9 +805,24 @@ function ContactSelectionCards({
                 ) : null}
                 <div className="mt-1 flex flex-wrap gap-x-3 text-xs">
                   {contact.email ? (
-                    <a className="underline" href={`mailto:${contact.email}`}>
-                      {contact.email}
-                    </a>
+                    <>
+                      <a className="underline" href={`mailto:${contact.email}`}>
+                        {contact.email}
+                      </a>
+                      {contact.emailStatus ? (
+                        <span className="text-muted-foreground">
+                          {contact.emailStatus}
+                          {contact.verificationProvider
+                            ? ` via ${contact.verificationProvider}`
+                            : ""}
+                        </span>
+                      ) : null}
+                      {contact.emailPattern ? (
+                        <span className="text-muted-foreground">
+                          pattern {contact.emailPattern}
+                        </span>
+                      ) : null}
+                    </>
                   ) : null}
                   {contact.profile ? (
                     <a
@@ -834,7 +853,7 @@ function ContactSelectionCards({
             `I selected these named contacts for outreach drafts only. Research each selected person and company, then draft individualized messages for review. Do not send anything:\n${selectedContacts
               .map(
                 (contact) =>
-                  `- ${contact.displayName}${contact.displayTitle ? `, ${contact.displayTitle}` : ""} at ${companyName}${domain ? ` (${domain})` : ""}${contact.email ? `; email: ${contact.email}` : ""}${contact.profile ? `; profile: ${contact.profile}` : ""}${contact.source ? `; source: ${contact.source}` : ""}`,
+                `- ${contact.displayName}${contact.displayTitle ? `, ${contact.displayTitle}` : ""} at ${companyName}${domain ? ` (${domain})` : ""}${contact.email ? `; email: ${contact.email}${contact.emailStatus ? ` (${contact.emailStatus}${contact.verificationProvider ? ` via ${contact.verificationProvider}` : ""})` : ""}` : ""}${contact.profile ? `; profile: ${contact.profile}` : ""}${contact.source ? `; source: ${contact.source}` : ""}`,
               )
               .join("\n")}`,
             "draft",

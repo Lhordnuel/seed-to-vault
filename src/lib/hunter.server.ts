@@ -104,3 +104,25 @@ export async function hunterEmailFinder(opts: {
     sources: (d.sources ?? []) as unknown[],
   };
 }
+
+export async function hunterVerifyEmail(
+  email: string,
+): Promise<{
+  status: "valid" | "catchall" | "invalid" | "unknown";
+  provider: "hunter";
+}> {
+  const data = await get("/email-verifier", { email });
+  const d = (data.data ?? {}) as Record<string, unknown>;
+  const status = String(d.status ?? d.result ?? "").toLowerCase();
+  return {
+    status:
+      status === "valid"
+        ? "valid"
+        : status === "accept_all" || status === "accept-all"
+          ? "catchall"
+          : status === "invalid" || status === "undeliverable"
+            ? "invalid"
+            : "unknown",
+    provider: "hunter" as const,
+  };
+}
