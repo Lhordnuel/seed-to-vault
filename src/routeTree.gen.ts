@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ContactsRouteImport } from './routes/contacts'
+import { Route as AutomationRouteImport } from './routes/automation'
 import { Route as ThreadIdRouteImport } from './routes/$threadId'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiSessionRouteImport } from './routes/api/session'
@@ -17,11 +18,17 @@ import { Route as ApiEmailStatusRouteImport } from './routes/api/email-status'
 import { Route as ApiEmailEventsRouteImport } from './routes/api/email-events'
 import { Route as ApiContactsRouteImport } from './routes/api/contacts'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as ApiAutomationRouteImport } from './routes/api/automation'
 import { Route as ApiPublicResendWebhookRouteImport } from './routes/api/public/resend-webhook'
 
 const ContactsRoute = ContactsRouteImport.update({
   id: '/contacts',
   path: '/contacts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AutomationRoute = AutomationRouteImport.update({
+  id: '/automation',
+  path: '/automation',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ThreadIdRoute = ThreadIdRouteImport.update({
@@ -59,6 +66,11 @@ const ApiChatRoute = ApiChatRouteImport.update({
   path: '/api/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAutomationRoute = ApiAutomationRouteImport.update({
+  id: '/api/automation',
+  path: '/api/automation',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicResendWebhookRoute = ApiPublicResendWebhookRouteImport.update({
   id: '/api/public/resend-webhook',
   path: '/api/public/resend-webhook',
@@ -68,7 +80,9 @@ const ApiPublicResendWebhookRoute = ApiPublicResendWebhookRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$threadId': typeof ThreadIdRoute
+  '/automation': typeof AutomationRoute
   '/contacts': typeof ContactsRoute
+  '/api/automation': typeof ApiAutomationRoute
   '/api/chat': typeof ApiChatRoute
   '/api/contacts': typeof ApiContactsRoute
   '/api/email-events': typeof ApiEmailEventsRoute
@@ -79,7 +93,9 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$threadId': typeof ThreadIdRoute
+  '/automation': typeof AutomationRoute
   '/contacts': typeof ContactsRoute
+  '/api/automation': typeof ApiAutomationRoute
   '/api/chat': typeof ApiChatRoute
   '/api/contacts': typeof ApiContactsRoute
   '/api/email-events': typeof ApiEmailEventsRoute
@@ -91,7 +107,9 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$threadId': typeof ThreadIdRoute
+  '/automation': typeof AutomationRoute
   '/contacts': typeof ContactsRoute
+  '/api/automation': typeof ApiAutomationRoute
   '/api/chat': typeof ApiChatRoute
   '/api/contacts': typeof ApiContactsRoute
   '/api/email-events': typeof ApiEmailEventsRoute
@@ -104,7 +122,9 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/$threadId'
+    | '/automation'
     | '/contacts'
+    | '/api/automation'
     | '/api/chat'
     | '/api/contacts'
     | '/api/email-events'
@@ -115,7 +135,9 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/$threadId'
+    | '/automation'
     | '/contacts'
+    | '/api/automation'
     | '/api/chat'
     | '/api/contacts'
     | '/api/email-events'
@@ -126,7 +148,9 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/$threadId'
+    | '/automation'
     | '/contacts'
+    | '/api/automation'
     | '/api/chat'
     | '/api/contacts'
     | '/api/email-events'
@@ -138,7 +162,9 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ThreadIdRoute: typeof ThreadIdRoute
+  AutomationRoute: typeof AutomationRoute
   ContactsRoute: typeof ContactsRoute
+  ApiAutomationRoute: typeof ApiAutomationRoute
   ApiChatRoute: typeof ApiChatRoute
   ApiContactsRoute: typeof ApiContactsRoute
   ApiEmailEventsRoute: typeof ApiEmailEventsRoute
@@ -154,6 +180,13 @@ declare module '@tanstack/react-router' {
       path: '/contacts'
       fullPath: '/contacts'
       preLoaderRoute: typeof ContactsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/automation': {
+      id: '/automation'
+      path: '/automation'
+      fullPath: '/automation'
+      preLoaderRoute: typeof AutomationRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/$threadId': {
@@ -205,6 +238,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/automation': {
+      id: '/api/automation'
+      path: '/api/automation'
+      fullPath: '/api/automation'
+      preLoaderRoute: typeof ApiAutomationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/resend-webhook': {
       id: '/api/public/resend-webhook'
       path: '/api/public/resend-webhook'
@@ -218,7 +258,9 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ThreadIdRoute: ThreadIdRoute,
+  AutomationRoute: AutomationRoute,
   ContactsRoute: ContactsRoute,
+  ApiAutomationRoute: ApiAutomationRoute,
   ApiChatRoute: ApiChatRoute,
   ApiContactsRoute: ApiContactsRoute,
   ApiEmailEventsRoute: ApiEmailEventsRoute,

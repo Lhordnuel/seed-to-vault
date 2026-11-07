@@ -11,6 +11,7 @@ Startup Scout is an AI-powered research and outreach workspace for Vaultio.tech.
 - Saves scouted companies, sourced contacts, and source-provider history in your Supabase project; review records in the Contact database.
 - Applies Vaultio's ideal-customer criteria, ranks companies by verified hiring signals, and lets you select companies and contacts before drafting.
 - Drafts role-specific pitches for review; outreach is sent only after a separate, explicit approval.
+- Runs optional Cloudflare background scouting up to three times per UTC day, and queues initial, reply, and follow-up drafts for individual review in **Automation**. Background cycles never send email.
 - Keeps chat threads in the browser's local storage. Threads are local to the browser and are not synced between devices. Contact records and delivery events are stored in Supabase.
 
 Search results depend on the connected data providers and publicly available information. LinkedIn and other job sites may limit access or change their pages, so coverage can vary.
@@ -64,12 +65,21 @@ Email sending and status checks call the Resend API directly. Store `RESEND_API_
 | `RESEND_API_KEY`                                        | Cloudflare secret used to send emails and read email status through Resend.                        |
 | `CC_NUEL_ENABLED`                                       | Optional; controls the default CC to `nuel@vaultio.tech` when sending. Defaults to `true`.         |
 | `RESEND_WEBHOOK_SECRET`                                 | Required to verify Resend delivery webhook signatures.                                             |
+| `RESEND_REPLY_ADDRESS`                                  | Optional; Resend receiving address for replies. Defaults to `nuel@vaultio.tech`.                   |
 
 Additional enrichment integrations are available through `FULLENRICH_API_KEY`, `LUSHA_API_KEY`, `HUNTER_API_KEY`, `PROSPEO_API_KEY`, `PEOPLE_DATA_LABS_API_KEY`, and `TOMBA_API_KEY` plus `TOMBA_SECRET_KEY`. These are optional; configure only the providers you intend to use.
 
 Apply the SQL files in `supabase/migrations/` to your Supabase project in filename order (or run the new scouting migration in the Supabase SQL Editor). The scouting schema keeps companies, contacts, and source observations in separate tables; it also records opt-outs and links email delivery events to contacts. Contacts are not marked eligible for commercialization automatically; a lawful basis and a separate review are required. Only the trusted server role can access these tables. Use provider data only in accordance with the provider's terms and applicable privacy requirements.
 
 The app access password now creates a signed, `HttpOnly` session cookie. Configure `APP_ACCESS_PASSWORD` before opening the app; protected chat, contact, and delivery endpoints reject requests without a valid session.
+
+### Background automation
+
+Apply `20261021010000_create_scout_automation.sql` after the scouting migration. In the Automation page, set a discovery query and enable the agent. Cloudflare Cron Triggers run at 00:00, 08:00, and 16:00 UTC; the database also atomically enforces the three-cycle daily cap across scheduled and manual runs. Each cycle examines at most three companies. Apollo and Firecrawl usage is therefore bounded by that cap and company limit.
+
+The agent can research companies, queue initial outreach drafts, monitor replies, and prepare one follow-up draft. Review and edit drafts in the Automation outbox. For a newly sourced contact, first record its lawful basis and eligibility review; then use **Approve & send** for that individual message. Rejected, opted-out, bounced, or unreviewed contacts are not sent. Enabling automation never authorizes email sending.
+
+To monitor replies, configure a Resend receiving-enabled domain and point a Resend webhook at `https://<your-domain>/api/public/resend-webhook`. Subscribe to `email.received` as well as the existing delivery events, and set `RESEND_WEBHOOK_SECRET` as a Worker secret. The incoming address must route messages to `nuel@vaultio.tech`; set `RESEND_REPLY_ADDRESS` only if you use a different verified receiving address. The webhook retrieves message content through Resend's Received Emails API. Without receiving enabled and the webhook configured, reply monitoring is unavailable.
 
 ## Tech stack
 
