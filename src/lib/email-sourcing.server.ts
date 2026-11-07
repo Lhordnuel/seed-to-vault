@@ -1,14 +1,12 @@
 import { firecrawlMap, firecrawlScrape } from "@/lib/firecrawl.server";
-import { hunterDomainSearch, hunterVerifyEmail } from "@/lib/hunter.server";
+import { hunterVerifyEmail } from "@/lib/hunter.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import {
   buildEmailCandidate,
   extractPublishedEmails,
   inferEmailPattern,
   isEmailPattern,
-  isWorkEmailForDomain,
   patternForPublishedEmail,
-  patternFromHunter,
   type EmailPattern,
 } from "@/lib/email-pattern";
 
@@ -242,7 +240,6 @@ export async function findVerifiedWorkEmail(input: {
   let patternSource: SourcingResult["patternSource"] = "default";
   let sourceUrl: string | undefined;
   let candidateEmail: string | undefined;
-  let hunterSearchFailed = false;
 
   for (const [email, url] of published) {
     const matchedPattern = patternForPublishedEmail(email, firstName, lastName);
@@ -266,39 +263,7 @@ export async function findVerifiedWorkEmail(input: {
     patternSource = cached.email_pattern_source;
   }
 
-  if (!candidateEmail && (process.env.HUNTER_API_KEY || process.env.HUNTER_API_KEY_2)) {
-    try {
-      const hunter = await hunterDomainSearch({ domain, limit: 10 });
-      for (const person of hunter.emails) {
-        const samePerson =
-          person.first_name?.trim().toLowerCase() === firstName.toLowerCase() &&
-          person.last_name?.trim().toLowerCase() === lastName.toLowerCase();
-        if (
-          samePerson &&
-          typeof person.value === "string" &&
-          isWorkEmailForDomain(person.value, domain)
-        ) {
-          candidateEmail = person.value.toLowerCase();
-          pattern = patternFromHunter(hunter.pattern);
-          patternSource = "hunter_domain_search";
-          break;
-        }
-      }
-      if (!candidateEmail) {
-        pattern = patternFromHunter(hunter.pattern);
-        if (pattern) patternSource = "hunter_domain_search";
-      }
-    } catch {
-      hunterSearchFailed = true;
-    }
-  }
-
-  const sourceNotices = [
-    ...siteFailures,
-    ...(hunterSearchFailed
-      ? ["Hunter domain search failed; fell back to site evidence or the default pattern."]
-      : []),
-  ];
+  const sourceNotices = [...siteFailures];
   if (!pattern) pattern = inferEmailPattern([...published.keys()]);
   if (pattern && patternSource === "default") patternSource = "published_address";
 

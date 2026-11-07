@@ -290,18 +290,12 @@ How to work — user-controlled stages:
 2. CONTACTS: only after Nuel selects companies using the selection cards, find relevant named decision-makers at those selected companies. Prioritize the hiring manager for a selected opening (engineering leader for engineering roles, product leader for product roles, marketing leader for marketing roles), then CTO/technical co-founder or the relevant function's executive. Call \`present_contact_options\` with each contact's actual source provider and source URL when known. Do not present or save inferred email guesses. For \`find_verified_work_email\` results, include an email only when status is \`valid\`, and pass its status, pattern, pattern source, and verification provider as the corresponding contact fields. This automatically saves the presented sourced contacts to Supabase before showing them; report any save failures shown in the tool result, then stop and wait for contact selection. Do not draft or send yet.
 3. DRAFT: only after Nuel selects named contacts, research each selected person and company, then draft individualized messages. Show drafts for review. Never send during discovery, contact selection, or draft creation. Send only after a separate, explicit send instruction.
 4. During the CONTACTS stage, use this lookup order and stop once there are enough sourced options to show:
-   a. \`find_executive_contacts\` — first inspect the selected company's own team/about/contact pages for named decision-makers and published work emails. It returns names even when no email is published.
-   b. \`fullenrich_enrich_person\` (or \`fullenrich_bulk_enrich\` for multiple) — PRIMARY enrichment when you have a name + (domain OR LinkedIn URL). Best email accuracy; returns VALID/CATCHALL qualification. Always try this once you have a name.
-   c. \`apollo_find_contacts\` — use when you have a domain but NO names yet. Discovers people by title; runs Bulk People Enrichment with reveal_personal_emails=true. NOTE: Apollo masks emails as 'email_not_unlocked@domain.com' when reveal credits are exhausted — the tool filters these out. If Apollo discovers names but no usable email, feed those names into \`fullenrich_bulk_enrich\`.
-   d. \`apollo_search_startups\` for discovery only (not contact emails).
-   e. \`lusha_find_contacts\` / \`lusha_enrich_person\` — fallback when FullEnrich + Apollo both fail.
-   f. \`hunter_domain_search\` if Lusha fails. Use \`hunter_email_finder\` when you have a selected person's name + domain.
-   g. \`prospeo_email_finder\` / \`prospeo_domain_search\` if Hunter fails.
-   h. \`pdl_person_enrich\` / \`pdl_person_search\` (People Data Labs) if Prospeo fails — best when you have a name or LinkedIn URL.
-   i. \`tomba_domain_search\` / \`tomba_email_finder\` if PDL fails.
-   j. \`find_verified_work_email\` if a selected person's name + company domain are known but existing sources did not reveal a usable email. It derives one candidate from a published site pattern or Hunter's domain pattern and verifies it. Only pass its \`email\` field onward when \`emailStatus\` is \`valid\`; never use \`candidateEmail\` from guess, catchall, invalid, or unknown results.
-   k. \`ai_source_emails\` (Meta Model API) if every provider above failed — scrapes the site and may infer patterns, but never treat inferred addresses as sendable.
-   l. \`find_linkedin_profiles\` (Firecrawl LinkedIn search) ONLY as the final fallback when no verified email exists anywhere. Surface the LinkedIn URLs so Nuel can DM manually.
+   a. PRIMARY: \`find_executive_contacts\` — inspect the selected company's own team/about/contact pages for named decision-makers and published work emails. It returns names even when no email is published.
+   b. For each named person without a published work email, call \`find_verified_work_email\`. It derives a candidate from a published site pattern, a cached pattern, or a clearly marked first.last default, then verifies it. Only include its \`email\` field when \`emailStatus\` is \`valid\`; never use \`candidateEmail\` from guess, catchall, invalid, or unknown results. This is the primary email-sourcing method; do not call third-party contact-enrichment providers before it.
+   c. FALLBACK 1: if the company site and pattern-based lookup do not produce enough useful named contacts with usable work emails, use \`hunter_email_finder\` for known people without an email. If the site found no relevant names, use \`hunter_domain_search\` to discover decision-makers. Do not treat guesses or masked addresses as usable.
+   d. FALLBACK 2: if Hunter does not produce enough useful contacts with usable work emails, use \`lusha_enrich_person\` for known people or \`lusha_find_contacts\` when no relevant names were found. Use only actual returned work emails; do not infer addresses.
+   e. \`find_linkedin_profiles\` ONLY if the primary method and both fallbacks fail to produce a usable email. Surface LinkedIn URLs so Nuel can DM manually.
+   f. \`apollo_search_startups\` is for company discovery only, not contact emails.
 5. RESEARCH PASS (MANDATORY before draft_pitch): after contact selection, for each recipient, run \`scrape_company\` on the company site AND on the recipient's LinkedIn/about page. Record 2–3 specific facts and the industry pain you'll lead with.
 6. \`draft_pitch\` using the PITCH FRAMEWORK + the correct ROLE-FAMILY VARIANT. Draft only for contacts Nuel selected. Show drafts and wait for explicit approval before any send.
 
@@ -729,7 +723,7 @@ export const Route = createFileRoute("/api/chat")({
           }),
           fullenrich_enrich_person: tool({
             description:
-              "PRIMARY contact enrichment via FullEnrich. Given a person's first/last name plus EITHER company domain OR LinkedIn URL (both preferred), returns their work email and phone. Best email accuracy of all providers — try this FIRST whenever you have a name. Polls the bulk job until FINISHED (up to ~60s).",
+              "FullEnrich contact enrichment. This is not part of the selected-company contact-sourcing sequence; use the company-site pattern workflow first, then Hunter and Lusha fallbacks.",
             inputSchema: z.object({
               firstName: z.string(),
               lastName: z.string(),
@@ -756,7 +750,7 @@ export const Route = createFileRoute("/api/chat")({
           }),
           fullenrich_bulk_enrich: tool({
             description:
-              "PRIMARY bulk contact enrichment via FullEnrich. Pass an array of {firstName,lastName,domain?,linkedinUrl?,companyName?,title?} and receive back enriched contacts with emails (qualified VALID/CATCHALL/UNKNOWN) and phones. Use after Apollo discovery surfaces names but masks emails, or after find_linkedin_profiles returns named LinkedIn URLs. Polls until FINISHED.",
+              "FullEnrich bulk contact enrichment. This is not part of the selected-company contact-sourcing sequence; use the company-site pattern workflow first, then Hunter and Lusha fallbacks.",
             inputSchema: z.object({
               contacts: z
                 .array(
@@ -793,7 +787,7 @@ export const Route = createFileRoute("/api/chat")({
           }),
           lusha_find_contacts: tool({
             description:
-              "Lusha contact lookup for a company the user selected. Use as a fallback when Apollo has no usable email. Pass titles relevant to the selected opening, such as an engineering, product, or marketing leader. Do not call before company selection.",
+              "Lusha contact lookup fallback for a company the user selected. Use only after company-site and pattern-based sourcing, and after Hunter fails to produce enough useful contacts. Pass titles relevant to the selected opening. Do not call before company selection.",
             inputSchema: z.object({
               domain: z.string().describe("Company domain, e.g. 'acme.com'"),
               titles: z
@@ -823,7 +817,7 @@ export const Route = createFileRoute("/api/chat")({
                   primaryContact: withEmail[0] ?? contacts[0] ?? null,
                   note:
                     withEmail.length === 0
-                      ? "Lusha returned no emails (likely out of credits or no match). Fall back to hunter_domain_search."
+                      ? "Lusha returned no emails (likely out of credits or no match). Do not use another provider; present names with LinkedIn if available."
                       : undefined,
                 };
               } catch (e) {
@@ -833,7 +827,7 @@ export const Route = createFileRoute("/api/chat")({
           }),
           lusha_enrich_person: tool({
             description:
-              "Lusha single-person enrichment by name + company domain (or LinkedIn URL). Use when you have a specific named person from Firecrawl/LinkedIn and need their work email.",
+              "Lusha single-person enrichment fallback by name + company domain (or LinkedIn URL). Use only after company-site pattern sourcing and Hunter fail to return a usable work email.",
             inputSchema: z.object({
               firstName: z.string(),
               lastName: z.string(),
@@ -1279,7 +1273,7 @@ export const Route = createFileRoute("/api/chat")({
           }),
           hunter_domain_search: tool({
             description:
-              "Hunter.io domain search fallback for a user-selected company. Returns known emails with role metadata. Use only after the user has selected the company and contact discovery is underway.",
+              "Hunter.io domain search fallback for a user-selected company. Returns known emails with role metadata. Use only after company-site and pattern-based sourcing; call when no relevant named people were found, or after Hunter email finder when it needs broader discovery.",
             inputSchema: z.object({
               domain: z.string().describe("Company domain, e.g. 'acme.com'"),
               limit: z.number().min(1).max(100).default(20),
@@ -1314,7 +1308,7 @@ export const Route = createFileRoute("/api/chat")({
           }),
           hunter_email_finder: tool({
             description:
-              "Hunter.io email finder. Given a person's first/last name and company domain, returns their most-likely email with a confidence score. Use when you already know a target person at a company.",
+              "Hunter.io email finder fallback. Given a person's first/last name and company domain, returns their most-likely email with a confidence score. Use only after company-site and pattern-based sourcing did not produce a usable work email.",
             inputSchema: z.object({
               domain: z.string(),
               firstName: z.string(),
@@ -1330,7 +1324,7 @@ export const Route = createFileRoute("/api/chat")({
           }),
           find_verified_work_email: tool({
             description:
-              "Find and verify one work-email candidate for a selected, already identified person. Checks published company-site addresses for a matching pattern, then a cached or Hunter domain pattern, then a clearly marked first.last fallback. Sends the single candidate to configured ZeroBounce, Reoon, or Hunter verification APIs. Only a 'valid' result includes an email field suitable for contact options; candidateEmail is diagnostic only and must never be shown as sendable or used for outreach. May use paid provider credits.",
+              "Primary pattern-based email lookup for a selected, already identified person. Checks published company-site addresses for a matching pattern, then a cached company pattern, then a clearly marked first.last fallback. Verifies the candidate with configured ZeroBounce, Reoon, or Hunter verification APIs. Only a 'valid' result includes an email field suitable for contact options; candidateEmail is diagnostic only and must never be shown as sendable or used for outreach. May use paid provider credits.",
             inputSchema: z.object({
               domain: z.string().describe("Selected company's public domain"),
               firstName: z.string().min(1),
@@ -1833,9 +1827,6 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
             "present_ranked_companies",
           ]),
           contacts: new Set([
-            "apollo_find_contacts",
-            "fullenrich_enrich_person",
-            "fullenrich_bulk_enrich",
             "lusha_find_contacts",
             "lusha_enrich_person",
             "scrape_company",
@@ -1844,13 +1835,6 @@ ${chunks.join("\n\n").slice(0, 18000)}`;
             "hunter_domain_search",
             "hunter_email_finder",
             "find_verified_work_email",
-            "prospeo_email_finder",
-            "prospeo_domain_search",
-            "pdl_person_enrich",
-            "pdl_person_search",
-            "tomba_domain_search",
-            "tomba_email_finder",
-            "ai_source_emails",
             "present_contact_options",
           ]),
           draft: new Set([
