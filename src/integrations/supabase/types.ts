@@ -57,6 +57,9 @@ export type Database = {
         Row: {
           created_at: string
           domain: string
+          email_pattern: string | null
+          email_pattern_source: string | null
+          email_pattern_updated_at: string | null
           employee_count: number | null
           id: string
           industry: string | null
@@ -69,6 +72,9 @@ export type Database = {
         Insert: {
           created_at?: string
           domain: string
+          email_pattern?: string | null
+          email_pattern_source?: string | null
+          email_pattern_updated_at?: string | null
           employee_count?: number | null
           id?: string
           industry?: string | null
@@ -81,6 +87,9 @@ export type Database = {
         Update: {
           created_at?: string
           domain?: string
+          email_pattern?: string | null
+          email_pattern_source?: string | null
+          email_pattern_updated_at?: string | null
           employee_count?: number | null
           id?: string
           industry?: string | null

@@ -22,6 +22,9 @@ export type SourcedContactInput = {
   title?: string;
   email?: string;
   emailStatus?: "unknown" | "valid" | "catchall" | "invalid";
+  emailPattern?: string;
+  emailPatternSource?: "published_address" | "hunter_domain_search" | "default";
+  verificationProvider?: "hunter" | "reoon" | "zerobounce";
   linkedinUrl?: string;
   sourceUrl?: string;
   externalRecordId?: string;
@@ -160,7 +163,16 @@ export async function saveSourcedContacts(input: {
         provider,
         source_url: contact.sourceUrl,
         external_record_id: contact.externalRecordId,
-        metadata: { email_status: contact.emailStatus ?? "unknown" },
+        metadata: {
+          email_status: contact.emailStatus ?? "unknown",
+          ...(contact.emailPattern ? { email_pattern: contact.emailPattern } : {}),
+          ...(contact.emailPatternSource
+            ? { email_pattern_source: contact.emailPatternSource }
+            : {}),
+          ...(contact.verificationProvider
+            ? { verification_provider: contact.verificationProvider }
+            : {}),
+        },
         observed_at: now,
       });
       if (sourceError) {
