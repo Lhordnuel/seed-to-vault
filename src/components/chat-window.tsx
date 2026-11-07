@@ -37,7 +37,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { upsertThread, titleFromMessages, type Thread } from "@/lib/threads";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { hasExplicitDraftApproval } from "@/lib/workflow-phase";
+import { hasExplicitDraftApproval, isEmailCompositionRequest } from "@/lib/workflow-phase";
 import logo from "@/assets/logo.png";
 
 type WorkflowPhase = "discover" | "contacts" | "draft" | "send";
@@ -53,6 +53,7 @@ function initialWorkflowPhase(messages: UIMessage[]): WorkflowPhase {
       if (text.startsWith("I selected these companies.")) phase = "contacts";
       else if (text.startsWith("I selected these named contacts")) phase = "draft";
       else if (/\b(send it|approve|yes send|ship it|go ahead)\b/i.test(text)) phase = "draft";
+      else if (isEmailCompositionRequest(text)) phase = "draft";
       else if (/\b(scout|search|find)\b.*\b(companies|startups)\b/i.test(text)) phase = "discover";
     } else if (message.role === "assistant") {
       for (const part of message.parts) {
@@ -145,6 +146,8 @@ export function ChatWindow({
       ])
     ) {
       workflowPhaseRef.current = "send";
+    } else if (isEmailCompositionRequest(value)) {
+      workflowPhaseRef.current = "draft";
     }
     sendMessage({ text: value });
     if (textareaRef.current) textareaRef.current.value = "";
