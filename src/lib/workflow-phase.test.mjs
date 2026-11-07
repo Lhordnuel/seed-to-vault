@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { hasExplicitDraftApproval } from "./workflow-phase.ts";
+import { hasExplicitDraftApproval, isEmailCompositionRequest } from "./workflow-phase.ts";
+
+test("recognizes email composition and send requests", () => {
+  assert.equal(isEmailCompositionRequest("Can you send an email to Alex?"), true);
+  assert.equal(isEmailCompositionRequest("Draft a follow-up email"), true);
+  assert.equal(isEmailCompositionRequest("What email address should I use?"), false);
+});
 
 const draftMessage = {
   role: "assistant",

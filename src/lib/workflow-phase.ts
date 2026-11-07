@@ -24,6 +24,13 @@ function getText(message: ChatMessage): string {
     .join("\n");
 }
 
+export function isEmailCompositionRequest(text: string): boolean {
+  return (
+    /\b(?:email|e-mail)\b/i.test(text) &&
+    /\b(?:draft|write|compose|send|follow[- ]?up|reply|intro|thank(?:-|\s)?you)\b/i.test(text)
+  );
+}
+
 function hasCompletedDraft(message: ChatMessage): boolean {
   const parts = getParts(message);
   const hasDraftToolResult = parts.some(
